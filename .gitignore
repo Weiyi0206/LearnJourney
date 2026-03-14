@@ -1,0 +1,20 @@
+# Node.js
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Environment variables
+.env
+.env.local
+
+# Documentation / Markdown
+*.md
+
+# OS specific
+.DS_Store
+Thumbs.db
