@@ -2,10 +2,8 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
-import { Navbar } from "@/components/layout/Navbar";
-import { AppSidebar } from "@/components/layout/AppSidebar";
+import { TopNav } from "@/components/layout/TopNav";
 
 // Auth
 import Login from "@/pages/auth/Login";
@@ -22,27 +20,36 @@ import StudentDashboard from "@/pages/student/Dashboard";
 import LearningPath from "@/pages/student/LearningPath";
 import CourseMaterial from "@/pages/student/CourseMaterial";
 import Quizzes from "@/pages/student/Quizzes";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AuthenticatedLayout = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null; // Or a loading spinner
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   return (
-    <SidebarProvider>
-      <div className="flex h-screen overflow-hidden w-full font-sans bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-black rounded-l-2xl shadow-2xl border-l border-t border-b border-zinc-200 dark:border-zinc-800 my-2 mr-2 overflow-hidden transition-all duration-300 relative group">
-          <header className="h-16 flex items-center shrink-0 border-b px-4 border-zinc-100 dark:border-zinc-900 bg-white/50 dark:bg-black/50 backdrop-blur-md sticky top-0 z-10 transition-colors">
-            <SidebarTrigger className="hover:bg-zinc-100 dark:hover:bg-zinc-800 p-2 rounded-lg transition-colors border shadow-sm border-zinc-200 dark:border-zinc-800" />
-            <div className="ml-auto">
-              <Navbar />
-            </div>
-          </header>
-          <main className="flex-1 overflow-auto bg-zinc-50/30 dark:bg-zinc-950/30 w-full relative">
-            <div className="absolute inset-0 max-w-[1400px] mx-auto w-full pb-12">
-              {children}
-            </div>
-          </main>
-        </div>
+    <div className="flex flex-col h-screen font-sans bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 overflow-hidden relative selection:bg-indigo-500/30">
+
+      {/* Dynamic Background Elements for that Bento/Modern Feel */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[140px] rounded-full pointer-events-none mix-blend-multiply dark:mix-blend-screen" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-pink-500/10 blur-[140px] rounded-full pointer-events-none mix-blend-multiply dark:mix-blend-screen" />
+
+      {/* The Top Navigation Bar */}
+      <div className="flex-none pt-4 pb-2 z-50">
+        <TopNav />
       </div>
-    </SidebarProvider>
+
+      {/* The dynamic content area, scrolls if needed internally */}
+      <main className="flex-1 flex flex-col overflow-hidden relative z-10">
+        {children}
+      </main>
+    </div>
   );
 };
 
