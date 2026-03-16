@@ -17,7 +17,7 @@ import {
 import { Home, BookOpen, GitGraph, Settings, LogOut, CheckSquare } from "lucide-react";
 
 export function AppSidebar() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const location = useLocation();
     const { state } = useSidebar();
 

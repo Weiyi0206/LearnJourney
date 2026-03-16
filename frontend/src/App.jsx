@@ -12,6 +12,8 @@ import Login from "@/pages/auth/Login";
 
 // Educator
 import EducatorDashboard from "@/pages/educator/Dashboard";
+import CourseManager from "@/pages/educator/CourseManager";
+import NodeManager from "@/pages/educator/NodeManager";
 import CourseBuilder from "@/pages/educator/CourseBuilder";
 import GraphEditor from "@/pages/educator/GraphEditor";
 
@@ -57,6 +59,8 @@ export default function App() {
               <AuthenticatedLayout>
                 <Routes>
                   <Route path="dashboard" element={<EducatorDashboard />} />
+                  <Route path="courses/:courseId" element={<CourseManager />} />
+                  <Route path="courses/:courseId/nodes/:nodeId" element={<NodeManager />} />
                   <Route path="builder" element={<CourseBuilder />} />
                   <Route path="graph" element={<GraphEditor />} />
                   <Route path="*" element={<Navigate to="dashboard" replace />} />
