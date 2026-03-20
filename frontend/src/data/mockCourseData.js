@@ -5,15 +5,15 @@ export const mockCourseData = {
     totalNodes: 4,
     graph: {
         nodes: [
-            { id: '1', position: { x: 250, y: 50 }, data: { label: 'Variables', status: 'Published' }, type: 'input', style: { backgroundColor: '#3b82f6', color: 'white', fontWeight: 'bold', borderRadius: '8px', padding: '10px 20px', border: 'none', cursor: 'pointer' } },
-            { id: '2', position: { x: 100, y: 150 }, data: { label: 'Loops', status: 'Published' }, style: { backgroundColor: '#3b82f6', color: 'white', fontWeight: 'bold', borderRadius: '8px', border: 'none', padding: '10px 20px', cursor: 'pointer' } },
-            { id: '3', position: { x: 400, y: 150 }, data: { label: 'Functions', status: 'Published' }, style: { backgroundColor: '#f59e0b', color: 'white', fontWeight: 'bold', borderRadius: '8px', border: 'none', padding: '10px 20px', cursor: 'pointer' } },
-            { id: '4', position: { x: 250, y: 250 }, data: { label: 'Classes', status: 'Published' }, type: 'output', style: { backgroundColor: '#3b82f6', color: 'white', fontWeight: 'bold', borderRadius: '8px', border: 'none', padding: '10px 20px', cursor: 'pointer' } }
+            { id: '1', position: { x: 250, y: 50 }, data: { label: 'Variables' } },
+            { id: '2', position: { x: 100, y: 180 }, data: { label: 'Loops' } },
+            { id: '3', position: { x: 400, y: 180 }, data: { label: 'Functions' } },
+            { id: '4', position: { x: 250, y: 310 }, data: { label: 'Classes' } },
         ],
         edges: [
-            { id: 'e1-2', source: '1', target: '2', animated: true, style: { stroke: '#94a3b8', strokeWidth: 2 } },
-            { id: 'e1-3', source: '1', target: '3', animated: true, style: { stroke: '#94a3b8', strokeWidth: 2 } },
-            { id: 'e3-4', source: '3', target: '4', animated: true, style: { stroke: '#94a3b8', strokeWidth: 2 } }
+            { id: 'e1-2', source: '1', target: '2', animated: true, style: { stroke: '#818cf8', strokeWidth: 3 } },
+            { id: 'e1-3', source: '1', target: '3', animated: true, style: { stroke: '#818cf8', strokeWidth: 3 } },
+            { id: 'e3-4', source: '3', target: '4', animated: true, style: { stroke: '#818cf8', strokeWidth: 3 } },
         ]
     },
     generalAnalytics: {

@@ -3,23 +3,21 @@ import { SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/compo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Trash2, Edit3, Type, GitBranch } from "lucide-react";
+import { Save, Trash2, Edit3, Type } from "lucide-react";
 
 export default function NodeEditorSheet({ node, onUpdateNode, onDeleteNode }) {
     const [label, setLabel] = useState("");
-    const [complexity, setComplexity] = useState("5");
 
     useEffect(() => {
         if (node) {
             setLabel(node.data?.label || "");
-            setComplexity(node.data?.complexity || "5");
         }
     }, [node]);
 
     if (!node) return null;
 
     const handleSave = () => {
-        onUpdateNode(node.id, { ...node.data, label, complexity });
+        onUpdateNode(node.id, { ...node.data, label });
     };
 
     return (
@@ -44,21 +42,6 @@ export default function NodeEditorSheet({ node, onUpdateNode, onDeleteNode }) {
                         onChange={(e) => setLabel(e.target.value)}
                         className="h-12 text-lg font-bold border-2 focus-visible:ring-indigo-500 bg-white dark:bg-zinc-900 rounded-xl"
                     />
-                </div>
-
-                <div className="space-y-3">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2"><GitBranch size={14} /> Cognitive Complexity Score (1-10)</Label>
-                    <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-xl">
-                        {[1, 3, 5, 7, 10].map(val => (
-                            <button
-                                key={val}
-                                onClick={() => setComplexity(val.toString())}
-                                className={`flex-1 py-3 text-sm font-black rounded-lg transition-all ${complexity === val.toString() ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
-                            >
-                                {val}
-                            </button>
-                        ))}
-                    </div>
                 </div>
             </div>
 

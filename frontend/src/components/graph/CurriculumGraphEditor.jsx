@@ -1,34 +1,20 @@
 import React, { useMemo } from 'react';
-import { ReactFlow, Controls, Background, MiniMap, Handle, Position } from '@xyflow/react';
+import { ReactFlow, Controls, Background, MiniMap } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, Save, GripHorizontal } from "lucide-react";
+import { Plus, Settings, Rocket } from "lucide-react";
 
-// Educator's Draggable Solid Color Node
-function EditorCustomNode({ data }) {
-    return (
-        <div className="bg-white dark:bg-zinc-900 border-2 border-indigo-500 text-zinc-900 dark:text-zinc-50 font-extrabold rounded-2xl min-w-[180px] shadow-2xl relative group">
-            <div className="w-full h-4 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-t-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-grab top-0 absolute">
-                <GripHorizontal size={12} className="text-indigo-500" />
-            </div>
-            <Handle type="target" position={Position.Top} className="w-16 h-2 bg-indigo-500 rounded-full border-none -top-1" />
+// Re-use the shared node component so style is always identical
+import CustomNode from './CustomNode';
 
-            <div className="px-6 py-5 text-center">
-                <span className="text-lg tracking-tight">{data.label}</span>
-                <div className="mt-2 flex justify-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-2 py-1 rounded-md">
-                        Complexity: {data.complexity || 5}/10
-                    </span>
-                </div>
-            </div>
-
-            <Handle type="source" position={Position.Bottom} className="w-16 h-2 bg-indigo-500 rounded-full border-none -bottom-1" />
-        </div>
-    );
+// Thin wrapper that injects isDraggable=true and isEducator=true
+// so CustomNode renders the educator style + drag handle hint
+function EditorNode({ data }) {
+    return <CustomNode data={{ ...data, isEducator: true, isDraggable: true }} />;
 }
 
-export default function CurriculumGraphEditor({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onOpenSettings }) {
-    const nodeTypes = useMemo(() => ({ editorNode: EditorCustomNode }), []);
+export default function CurriculumGraphEditor({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onOpenSettings, onAddNode, onDeploy }) {
+    const nodeTypes = useMemo(() => ({ editorNode: EditorNode }), []);
 
     return (
         <div className="w-full h-full relative bg-zinc-50/30 dark:bg-zinc-950">
@@ -46,7 +32,7 @@ export default function CurriculumGraphEditor({ nodes, edges, onNodesChange, onE
                 </div>
 
                 <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" className="font-bold rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => { }}>
+                    <Button variant="ghost" size="sm" className="font-bold rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={onAddNode}>
                         <Plus size={16} className="mr-2 text-indigo-500" /> Add Node
                     </Button>
                     <Button variant="ghost" size="sm" className="font-bold rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={onOpenSettings}>
@@ -55,8 +41,11 @@ export default function CurriculumGraphEditor({ nodes, edges, onNodesChange, onE
                 </div>
 
                 <div className="pl-4">
-                    <Button className="font-bold bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-full shadow-lg shadow-zinc-900/20 px-6">
-                        <Save size={16} className="mr-2" /> Deploy Curriculum
+                    <Button
+                        className="font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg shadow-indigo-500/20 px-6"
+                        onClick={onDeploy}
+                    >
+                        <Rocket size={16} className="mr-2" /> Deploy Curriculum
                     </Button>
                 </div>
             </div>
