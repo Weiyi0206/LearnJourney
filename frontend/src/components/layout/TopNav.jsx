@@ -11,13 +11,12 @@ export function TopNav() {
 
     const educatorItems = [
         { title: "Dashboard", url: "/educator/dashboard", icon: Home },
-        { title: "Course Builder", url: "/educator/builder", icon: BookOpen },
-        { title: "Graph Editor", url: "/educator/graph", icon: GitGraph },
+        { title: "Course Creator", url: "/educator/builder", icon: GitGraph },
     ];
 
     const studentItems = [
         { title: "Dashboard", url: "/student/dashboard", icon: Home },
-        { title: "Learning Path", url: "/student/path", icon: GitGraph },
+        { title: "Learning Path", url: "/courses/course_001", icon: GitGraph },
         { title: "Quizzes", url: "/student/quizzes", icon: CheckSquare },
     ];
 
@@ -27,7 +26,8 @@ export function TopNav() {
     const checkIsActive = (itemUrl) => {
         if (location.pathname === itemUrl) return true;
         // Keep Dashboard active if we are deep into courses/nodes
-        if (itemUrl.includes('dashboard') && location.pathname.includes('/courses/')) return true;
+        if (itemUrl.includes('dashboard') && location.pathname.includes('/courses/')) return false; // For shared route, we shouldn't light up Dashboard unless explicitly told to. Wait, let's keep dashboard unlit if we are viewing course, or wait, educators go from Dashboard -> Courses. Let's make "Learning Path" lit for Student when in /courses. For educator, nothing is lit if they are inside a distinct /courses route, or we can light Dashboard. Let's leave it unlit.
+        if (itemUrl.includes('/courses/') && location.pathname.includes('/courses/')) return true; // Student Learning path highlighting
         return false;
     };
 
@@ -56,8 +56,8 @@ export function TopNav() {
                                 key={item.title}
                                 to={item.url}
                                 className={`flex items-center gap-2.5 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all duration-300 shrink-0 ${isActive
-                                        ? "bg-zinc-900 text-white shadow-xl shadow-zinc-900/20 dark:bg-zinc-100 dark:text-zinc-900 dark:shadow-white/10 scale-100"
-                                        : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100/80 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800/80 scale-95 hover:scale-100"
+                                    ? "bg-zinc-900 text-white shadow-xl shadow-zinc-900/20 dark:bg-zinc-100 dark:text-zinc-900 dark:shadow-white/10 scale-100"
+                                    : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100/80 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800/80 scale-95 hover:scale-100"
                                     }`}
                             >
                                 <Icon size={18} className={isActive ? "" : "opacity-70"} />

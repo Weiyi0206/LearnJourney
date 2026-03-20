@@ -144,7 +144,7 @@ export default function EducatorDashboard() {
                             <CardFooter className="relative z-10 pt-4 pb-4 px-4 bg-zinc-50 dark:bg-zinc-950/80">
                                 <Button
                                     className="w-full font-bold shadow-sm gap-2 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-                                    onClick={() => navigate(`/educator/courses/${course.id}`)}
+                                    onClick={() => navigate(`/courses/${course.id}`)}
                                 >
                                     <Settings2 size={16} /> Manage Course
                                 </Button>

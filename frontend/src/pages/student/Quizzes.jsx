@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { CheckCircle, XCircle, BrainCircuit, ShieldAlert, Sparkles, Send } from "lucide-react";
+import confetti from "canvas-confetti";
 
 export default function Quizzes() {
     const location = useLocation();
@@ -33,12 +34,18 @@ export default function Quizzes() {
     const handleSubmit = () => {
         setIsSubmitted(true);
         if (selectedOption === quizData.correctAnswer) {
+            confetti({
+                particleCount: 200,
+                spread: 90,
+                origin: { y: 0.5 },
+                colors: ['#10b981', '#3b82f6', '#f59e0b']
+            });
             setTimeout(() => setShowCelebration(true), 1200);
         }
     };
 
     const handleReturn = () => {
-        navigate("/student/path");
+        navigate("/courses/course_001");
     };
 
     return (
