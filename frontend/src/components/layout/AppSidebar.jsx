@@ -17,7 +17,7 @@ import {
 import { Home, BookOpen, GitGraph, Settings, LogOut, CheckSquare } from "lucide-react";
 
 export function AppSidebar() {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const location = useLocation();
     const { state } = useSidebar();
 
@@ -35,7 +35,8 @@ export function AppSidebar() {
         { title: "Quizzes", url: "/student/quizzes", icon: CheckSquare },
     ];
 
-    const menuItems = user.role === "educator" ? educatorItems : studentItems;
+    const role = profile?.role || user?.user_metadata?.role || "student";
+    const menuItems = role === "educator" ? educatorItems : studentItems;
 
     return (
         <Sidebar variant="inset">
@@ -66,13 +67,13 @@ export function AppSidebar() {
             </SidebarContent>
             <SidebarFooter className="border-t p-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                        {user.name.charAt(0)}
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold uppercase shrink-0">
+                        {(profile?.full_name || user?.user_metadata?.full_name || user.email).charAt(0)}
                     </div>
                     {state === "expanded" && (
                         <div className="flex flex-col overflow-hidden">
-                            <span className="text-sm font-medium truncate">{user.name}</span>
-                            <span className="text-xs text-zinc-500 truncate capitalize">{user.role}</span>
+                            <span className="text-sm font-medium truncate">{profile?.full_name || user?.user_metadata?.full_name || user.email}</span>
+                            <span className="text-xs text-zinc-500 truncate capitalize">{role}</span>
                         </div>
                     )}
                 </div>

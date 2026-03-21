@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
-    const { user, logout } = useAuth();
+    const { user, profile, signOut } = useAuth();
 
     return (
         <nav className="flex items-center justify-between px-6 py-4 bg-white border-b shadow-sm dark:bg-zinc-950 dark:border-zinc-800">
@@ -18,9 +18,9 @@ export function Navbar() {
                 {user ? (
                     <>
                         <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                            Welcome, {user.name} ({user.role})
+                            Welcome, {profile?.full_name || user?.user_metadata?.full_name || user.email} ({profile?.role || user?.user_metadata?.role || "student"})
                         </span>
-                        <Button variant="outline" size="sm" onClick={logout}>
+                        <Button variant="outline" size="sm" onClick={signOut}>
                             Log out
                         </Button>
                     </>

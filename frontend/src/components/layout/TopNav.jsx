@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Home, BookOpen, GitGraph, CheckSquare, LogOut, Hexagon } from "lucide-react";
 
 export function TopNav() {
-    const { user, logout } = useAuth();
+    const { user, profile, signOut } = useAuth();
     const location = useLocation();
 
     if (!user) return null;
@@ -20,16 +20,19 @@ export function TopNav() {
         { title: "Quizzes", url: "/student/quizzes", icon: CheckSquare },
     ];
 
-    const menuItems = user.role === "educator" ? educatorItems : studentItems;
+    const role = profile?.role || user?.user_metadata?.role;
+    const menuItems = role === "educator" ? educatorItems : studentItems;
 
     // A clever check to see if an item is active (including deep links)
     const checkIsActive = (itemUrl) => {
         if (location.pathname === itemUrl) return true;
         // Keep Dashboard active if we are deep into courses/nodes
-        if (itemUrl.includes('dashboard') && location.pathname.includes('/courses/')) return false; // For shared route, we shouldn't light up Dashboard unless explicitly told to. Wait, let's keep dashboard unlit if we are viewing course, or wait, educators go from Dashboard -> Courses. Let's make "Learning Path" lit for Student when in /courses. For educator, nothing is lit if they are inside a distinct /courses route, or we can light Dashboard. Let's leave it unlit.
-        if (itemUrl.includes('/courses/') && location.pathname.includes('/courses/')) return true; // Student Learning path highlighting
+        if (itemUrl.includes('dashboard') && location.pathname.includes('/courses/')) return false;
+        if (itemUrl.includes('/courses/') && location.pathname.includes('/courses/')) return true;
         return false;
     };
+
+    const userName = profile?.full_name || user?.user_metadata?.full_name || user?.email || "User";
 
     return (
         <div className="w-full flex justify-center px-4 md:px-8 pointer-events-none">
@@ -71,22 +74,23 @@ export function TopNav() {
                 <div className="flex items-center gap-4 pl-4 border-l border-zinc-200 dark:border-zinc-800 shrink-0">
                     <div className="flex items-center gap-3 bg-zinc-100/50 dark:bg-zinc-800/50 rounded-full pl-4 pr-1.5 py-1.5 border border-zinc-200/50 dark:border-zinc-700/50 hidden sm:flex">
                         <div className="flex flex-col items-end">
-                            <span className="text-xs font-black leading-none text-zinc-900 dark:text-zinc-100">{user.name}</span>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mt-1">{user.role}</span>
+                            <span className="text-xs font-black leading-none text-zinc-900 dark:text-zinc-100 italic">{userName}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mt-1">{role}</span>
                         </div>
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-inner uppercase">
-                            {user.name.charAt(0)}
+                            {userName.charAt(0)}
                         </div>
                     </div>
 
                     <button
-                        onClick={logout}
+                        onClick={signOut}
                         className="w-10 h-10 rounded-2xl flex items-center justify-center text-zinc-400 hover:text-red-600 border border-transparent hover:border-red-100 hover:bg-red-50 dark:hover:bg-red-900/20 dark:hover:border-red-900/30 transition-all duration-300"
                         title="Log Out"
                     >
                         <LogOut size={18} />
                     </button>
                 </div>
+
 
             </div>
         </div>

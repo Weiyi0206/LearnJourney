@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function StudentDashboard() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
 
     // Mock Database for Courses
     const allCourses = [
@@ -75,7 +75,7 @@ export default function StudentDashboard() {
             {/* Header */}
             <div>
                 <h1 className="text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-3">
-                    Welcome back, {user?.name.split(' ')[0] || "Student"}.
+                    Welcome back, {(profile?.full_name || user?.user_metadata?.full_name || "Student").split(' ')[0]}.
                 </h1>
                 <p className="text-zinc-500 mt-2 font-medium text-lg">Continue your learning journey where you left off.</p>
             </div>

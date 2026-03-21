@@ -4,9 +4,13 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { TopNav } from "@/components/layout/TopNav";
+import ProtectedRoute from "@/components/layout/ProtectedRoute";
 
 // Auth
 import Login from "@/pages/auth/Login";
+import Register from "@/pages/auth/Register";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword from "@/pages/auth/ResetPassword";
 
 // Specific Educator Pages
 import EducatorDashboard from "@/pages/educator/Dashboard";
@@ -20,17 +24,7 @@ import Diagnostic from "@/pages/student/Diagnostic";
 // Shared Course Pages
 import CourseView from "@/pages/shared/CourseView";
 
-const AuthenticatedLayout = ({ children }) => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return null; // Or a loading spinner
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
+const MainLayout = ({ children }) => {
   return (
     <div className="flex flex-col h-screen font-sans bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 overflow-hidden relative selection:bg-indigo-500/30">
 
@@ -51,42 +45,68 @@ const AuthenticatedLayout = ({ children }) => {
   );
 };
 
+// Simple index redirect component based on role
+const IndexRedirect = () => {
+  return (
+    <ProtectedRoute>
+      <RoleRedirect />
+    </ProtectedRoute>
+  );
+};
+
+const RoleRedirect = () => {
+  const { profile } = useAuth();
+  if (profile?.role === 'educator') {
+    return <Navigate to="/educator/dashboard" replace />;
+  }
+  return <Navigate to="/student/dashboard" replace />;
+};
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <TooltipProvider>
           <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<IndexRedirect />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             <Route path="/educator/*" element={
-              <AuthenticatedLayout>
-                <Routes>
-                  <Route path="dashboard" element={<EducatorDashboard />} />
-                  <Route path="builder" element={<CourseCreator />} />
-                  <Route path="*" element={<Navigate to="dashboard" replace />} />
-                </Routes>
-              </AuthenticatedLayout>
+              <ProtectedRoute allowedRole="educator">
+                <MainLayout>
+                  <Routes>
+                    <Route path="dashboard" element={<EducatorDashboard />} />
+                    <Route path="builder" element={<CourseCreator />} />
+                    <Route path="*" element={<Navigate to="dashboard" replace />} />
+                  </Routes>
+                </MainLayout>
+              </ProtectedRoute>
             } />
 
             <Route path="/student/*" element={
-              <AuthenticatedLayout>
-                <Routes>
-                  <Route path="dashboard" element={<StudentDashboard />} />
-                  <Route path="diagnostic/:courseId" element={<Diagnostic />} />
-                  <Route path="quizzes" element={<Quizzes />} />
-                  <Route path="*" element={<Navigate to="dashboard" replace />} />
-                </Routes>
-              </AuthenticatedLayout>
+              <ProtectedRoute allowedRole="student">
+                <MainLayout>
+                  <Routes>
+                    <Route path="dashboard" element={<StudentDashboard />} />
+                    <Route path="diagnostic/:courseId" element={<Diagnostic />} />
+                    <Route path="quizzes" element={<Quizzes />} />
+                    <Route path="*" element={<Navigate to="dashboard" replace />} />
+                  </Routes>
+                </MainLayout>
+              </ProtectedRoute>
             } />
 
             <Route path="/courses/*" element={
-              <AuthenticatedLayout>
-                <Routes>
-                  <Route path=":courseId" element={<CourseView />} />
-                </Routes>
-              </AuthenticatedLayout>
+              <ProtectedRoute>
+                <MainLayout>
+                  <Routes>
+                    <Route path=":courseId" element={<CourseView />} />
+                  </Routes>
+                </MainLayout>
+              </ProtectedRoute>
             } />
           </Routes>
         </TooltipProvider>
