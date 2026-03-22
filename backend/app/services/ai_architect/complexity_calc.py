@@ -1,22 +1,26 @@
 import os
 import string
 import re
+import statistics
+from typing import List
+
+DEFAULT_CORPUS_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'corpus', 'python_corpus.txt')
 
 class ComplexityCalculator:
-    def __init__(self, corpus_path: str = "corpus/python_corpus.txt"):
+    def __init__(self, corpus_path: str = DEFAULT_CORPUS_PATH):
         """
         Initializes the ComplexityCalculator with a pedagogical corpus.
+        Analyzes the text by paragraphs.
         """
         self.corpus_path = corpus_path
-        self.preprocessed_corpus = ""
+        self.paragraphs = []
         self._load_and_preprocess()
 
     def _load_and_preprocess(self):
         """
         Loads the text file from corpus_path and preprocesses it by 
-        converting to lowercase and removing punctuation.
+        splitting into paragraphs. Lowercases and removes punctuation for each.
         """
-        # Error handling if the corpus file is missing
         if not os.path.exists(self.corpus_path):
             print(f"Warning: Corpus file not found at '{self.corpus_path}'. All frequencies will evaluate to 0.")
             return
@@ -25,41 +29,67 @@ class ComplexityCalculator:
             with open(self.corpus_path, "r", encoding="utf-8") as f:
                 text = f.read()
 
-            # Preprocessing: lowercase
-            text = text.lower()
-
-            # Preprocessing: remove punctuation
+            # Split by double newline to get paragraphs
+            raw_paragraphs = text.split("\n\n")
             translator = str.maketrans('', '', string.punctuation)
-            self.preprocessed_corpus = text.translate(translator)
+            
+            for p in raw_paragraphs:
+                cleaned_p = p.strip().lower().translate(translator)
+                if cleaned_p:
+                    self.paragraphs.append(cleaned_p)
             
         except Exception as e:
             print(f"Error reading and preprocessing corpus file: {e}")
 
-    def get_frequency(self, term: str) -> int:
+    def _clean_term(self, term: str) -> str:
+        return term.lower().translate(str.maketrans('', '', string.punctuation)).strip()
+
+    def get_paragraph_indices(self, term: str) -> List[int]:
         """
-        Counts how many times a skill appears in the preprocessed corpus.
-        
-        Logic based on Zipfian distribution:
-        - Higher frequency = Foundational (Lower Complexity)
-        - Lower frequency = Advanced (Higher Complexity)
+        Returns a list of integer indices representing which paragraphs contain the term.
         """
-        if not self.preprocessed_corpus:
-            return 0
+        if not self.paragraphs:
+            return []
             
-        # Clean the input term the same way as the corpus
-        clean_term = term.lower().translate(str.maketrans('', '', string.punctuation))
-        
-        # If the term becomes empty after cleaning, return 0
+        clean_term = self._clean_term(term)
         if not clean_term:
-            return 0
+            return []
             
-        # Use regex to match exact words or phrases to avoid partial matches 
-        # (e.g., searching for "for" shouldn't match "format")
+        indices = []
         try:
             # Pattern looking for exact word bounds
             pattern = r'\b' + re.escape(clean_term) + r'\b'
-            matches = re.findall(pattern, self.preprocessed_corpus)
-            return len(matches)
+            for idx, p in enumerate(self.paragraphs):
+                if re.search(pattern, p):
+                    indices.append(idx)
         except re.error:
-            # Fallback to simple substring counting if regex fails for any reason
-            return self.preprocessed_corpus.count(clean_term)
+            # Fallback to simple substring matching if regex fails
+            for idx, p in enumerate(self.paragraphs):
+                if clean_term in p:
+                    indices.append(idx)
+                    
+        return indices
+
+    def get_median_occurrence(self, term: str) -> float:
+        """
+        Calculate the 'Center of Mass' (Median Occurrence).
+        Find all paragraph indices where the term appears and return median.
+        """
+        indices = self.get_paragraph_indices(term)
+        if not indices:
+            return float('inf')
+        return float(statistics.median(indices))
+
+    def get_paragraph_frequency(self, term: str) -> int:
+        """
+        Returns the total number of paragraphs that contain the term.
+        """
+        return len(self.get_paragraph_indices(term))
+
+    def get_co_occurrence(self, term_a: str, term_b: str) -> int:
+        """
+        Return the number of paragraphs that contain BOTH term_a and term_b.
+        """
+        indices_a = set(self.get_paragraph_indices(term_a))
+        indices_b = set(self.get_paragraph_indices(term_b))
+        return len(indices_a.intersection(indices_b))

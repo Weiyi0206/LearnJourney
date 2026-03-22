@@ -55,8 +55,10 @@ const IndexRedirect = () => {
 };
 
 const RoleRedirect = () => {
-  const { profile } = useAuth();
-  if (profile?.role === 'educator') {
+  const { user, profile } = useAuth();
+  const role = profile?.role || user?.user_metadata?.role;
+
+  if (role === 'educator') {
     return <Navigate to="/educator/dashboard" replace />;
   }
   return <Navigate to="/student/dashboard" replace />;

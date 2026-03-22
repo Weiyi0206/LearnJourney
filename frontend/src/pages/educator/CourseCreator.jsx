@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 
+import { CourseAPI } from "@/lib/apiClient";
 import CourseArchitectForm from "@/components/graph/CourseArchitectForm";
 import CurriculumGraphEditor from "@/components/graph/CurriculumGraphEditor";
 import NodeEditorSheet from "@/components/graph/NodeEditorSheet";
@@ -23,6 +24,7 @@ export default function CourseCreator() {
 
     // Core App State
     const [step, setStep] = useState('input'); // 'input' | 'editor'
+    const [isDeploying, setIsDeploying] = useState(false);
 
     // Global Course Metadata
     const [courseInfo, setCourseInfo] = useState({
@@ -46,8 +48,6 @@ export default function CourseCreator() {
 
     // ------- Utility: Check if adding edge would create a cycle -------
     const wouldCreateCycle = useCallback((sourceId, targetId, currentEdges) => {
-        // BFS/DFS from targetId to see if we can reach sourceId
-        // If yes, adding sourceId -> targetId would create a cycle
         const adjacency = {};
         currentEdges.forEach(e => {
             if (!adjacency[e.source]) adjacency[e.source] = [];
@@ -58,7 +58,7 @@ export default function CourseCreator() {
         const queue = [targetId];
         while (queue.length > 0) {
             const current = queue.shift();
-            if (current === sourceId) return true; // cycle detected
+            if (current === sourceId) return true;
             if (visited.has(current)) continue;
             visited.add(current);
             const neighbors = adjacency[current] || [];
@@ -83,23 +83,24 @@ export default function CourseCreator() {
     const handleGenerate = (data) => {
         setCourseInfo({ ...courseInfo, title: data.title, description: data.description });
 
-        // Mock generation of nodes (complexity removed)
-        const mockNodes = [
-            { id: 'n1', type: 'editorNode', position: { x: 400, y: 100 }, data: { label: 'Variables & Types' } },
-            { id: 'n2', type: 'editorNode', position: { x: 200, y: 250 }, data: { label: 'Conditionals' } },
-            { id: 'n3', type: 'editorNode', position: { x: 600, y: 250 }, data: { label: 'Loops' } },
-            { id: 'n4', type: 'editorNode', position: { x: 400, y: 400 }, data: { label: 'Functions' } },
-        ];
-        const mockEdges = [
-            { id: 'e1-2', source: 'n1', target: 'n2', animated: true, style: { stroke: '#818cf8', strokeWidth: 3 } },
-            { id: 'e1-3', source: 'n1', target: 'n3', animated: true, style: { stroke: '#818cf8', strokeWidth: 3 } },
-            { id: 'e2-4', source: 'n2', target: 'n4', animated: true, style: { stroke: '#818cf8', strokeWidth: 3 } },
-            { id: 'e3-4', source: 'n3', target: 'n4', animated: true, style: { stroke: '#818cf8', strokeWidth: 3 } },
-        ];
+        const typedNodes = data.nodes.map((n, index) => {
+            return {
+                ...n,
+                type: 'editorNode',
+                position: n.position || { x: 200 + (index * 150), y: 250 + ((index % 2) * 100) }
+            };
+        });
 
-        setNodes(mockNodes);
-        setEdges(mockEdges);
-        setNodeCounter(5); // next id starts at 5
+        const stylizedEdges = data.edges.map((e, i) => ({
+            ...e,
+            id: `e-${e.source}-${e.target}`,
+            animated: true,
+            style: { stroke: '#818cf8', strokeWidth: 3 }
+        }));
+
+        setNodes(typedNodes);
+        setEdges(stylizedEdges);
+        setNodeCounter(typedNodes.length + 1);
         setStep('editor');
     };
 
@@ -107,16 +108,10 @@ export default function CourseCreator() {
     const onNodesChange = useCallback((changes) => setNodes((nds) => applyNodeChanges(changes, nds)), []);
     const onEdgesChange = useCallback((changes) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
 
-    // Enforce DAG: no cycles, no duplicate/reverse edges
     const onConnect = useCallback((connection) => {
         setEdges((eds) => {
-            // Prevent self-loop
             if (connection.source === connection.target) return eds;
-
-            // Prevent duplicate edge (in either direction)
             if (edgeExists(connection.source, connection.target, eds)) return eds;
-
-            // Prevent cycle: if target can already reach source, adding this edge creates a cycle
             if (wouldCreateCycle(connection.source, connection.target, eds)) return eds;
 
             connection.animated = true;
@@ -141,7 +136,6 @@ export default function CourseCreator() {
         setIsNodeEditorOpen(false);
     };
 
-    // Add Node: creates a new node at center of viewport with a default label
     const addNode = useCallback(() => {
         const newId = `n${nodeCounter}`;
         const offsetX = (Math.random() - 0.5) * 200;
@@ -154,26 +148,36 @@ export default function CourseCreator() {
         };
         setNodes(nds => [...nds, newNode]);
         setNodeCounter(c => c + 1);
-
-        // Immediately open editor for the new node
         setSelectedNodeId(newId);
         setIsNodeEditorOpen(true);
     }, [nodeCounter]);
 
-    // Deploy Curriculum: mark as published and navigate to course page
-    const handleDeploy = useCallback(() => {
-        const courseId = `course_${Date.now()}`;
-        setCourseInfo(prev => ({ ...prev, published: true }));
+    const handleDeploy = async () => {
+        setIsDeploying(true);
+        try {
+            const payload = {
+                educator_id: user?.id,
+                title: courseInfo.title,
+                description: courseInfo.description,
+                nodes: nodes,
+                edges: edges
+            };
 
-        // In a real app, this would POST to the backend with:
-        // { courseInfo, nodes, edges, visibility }
-        // For now, navigate to the course view page
-        navigate(`/courses/${courseId}`);
-    }, [navigate]);
+            await CourseAPI.deployCourse(payload);
+            setCourseInfo(prev => ({ ...prev, published: true }));
+
+            alert("Course Deployed Successfully!");
+            navigate('/educator/dashboard');
+        } catch (error) {
+            console.error(error);
+            alert("Deployment Failed: " + (error.response?.data?.detail || error.message));
+        } finally {
+            setIsDeploying(false);
+        }
+    };
 
     return (
         <div className="flex flex-col h-full w-full overflow-hidden bg-white dark:bg-zinc-950">
-
             {/* Top Navigation Strip */}
             <div className="flex-none px-4 md:px-8 py-4 border-b border-zinc-200/60 dark:border-zinc-800 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-md z-20 flex justify-between items-center transition-all">
                 <div className="flex items-center gap-4">
@@ -209,6 +213,7 @@ export default function CourseCreator() {
                         onOpenSettings={() => setIsSettingsOpen(true)}
                         onAddNode={addNode}
                         onDeploy={handleDeploy}
+                        isDeploying={isDeploying}
                     />
                 )}
             </div>
@@ -243,7 +248,6 @@ export default function CourseCreator() {
                             <Textarea value={courseInfo.description} onChange={(e) => setCourseInfo({ ...courseInfo, description: e.target.value })} className="min-h-[120px] font-medium resize-y border-2 rounded-xl focus-visible:ring-indigo-500" />
                         </div>
 
-                        {/* Course Visibility Setting */}
                         <div className="space-y-3">
                             <Label className="uppercase tracking-widest text-[10px] font-black text-zinc-500 flex items-center gap-2"><FileKey size={14} /> Course Visibility</Label>
                             <Select value={courseInfo.visibility} onValueChange={(val) => setCourseInfo({ ...courseInfo, visibility: val })}>
@@ -278,7 +282,6 @@ export default function CourseCreator() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
         </div>
     );
 }

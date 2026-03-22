@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Wand2, Loader2, Network, BrainCircuit } from 'lucide-react';
-
+import { CourseAPI } from "@/lib/apiClient";
 export default function CourseArchitectForm({ onGenerate }) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -13,17 +13,29 @@ export default function CourseArchitectForm({ onGenerate }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [loadingText, setLoadingText] = useState('Encoding semantics via SBERT...');
 
-    const handleGenerate = () => {
+    const handleGenerate = async () => {
         setIsGenerating(true);
+        setLoadingText('Connecting to Graph Inference Engine...');
 
-        // Simulating AI Pipeline Steps
-        setTimeout(() => setLoadingText('Calculating complexity matrix...'), 1500);
-        setTimeout(() => setLoadingText('Structuring Direct Acyclic Graph...'), 3000);
+        try {
+            // Split skills into array
+            const skillsArray = skills
+                .split(/[\n,]+/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
 
-        // Complete
-        setTimeout(() => {
-            onGenerate({ title, description, skills });
-        }, 4500);
+            // Call backend API
+            const response = await CourseAPI.generateGraph(skillsArray);
+
+            setLoadingText('Structuring Direct Acyclic Graph...');
+
+            // Pass complete data back up
+            onGenerate({ title, description, nodes: response.nodes, edges: response.edges });
+        } catch (error) {
+            console.error("Failed to generate graph:", error);
+            setIsGenerating(false);
+            // In a real app we might show a toast here
+        }
     };
 
     if (isGenerating) {

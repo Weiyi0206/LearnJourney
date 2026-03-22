@@ -25,11 +25,14 @@ import NodeEditorSheet from "@/components/graph/NodeEditorSheet";
 export default function CourseView() {
     const navigate = useNavigate();
     const { courseId = "course_001" } = useParams();
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
+
+    // The user's role can come from the persistent profiles table or the JWT metadata
+    const userRole = profile?.role || user?.user_metadata?.role || "student";
+    const isEducator = userRole === "educator";
 
     // Mock course data logic
     const course = mockCourseData;
-    const isEducator = user?.role === "educator";
 
     // Educator: edit mode toggle
     const [isEditMode, setIsEditMode] = useState(false);
@@ -226,7 +229,7 @@ export default function CourseView() {
             <header className="flex-none p-4 md:px-8 border-b border-zinc-200/60 dark:border-zinc-800 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-md z-20 flex flex-col md:flex-row md:items-center justify-between gap-4 h-[80px]">
                 {/* Left Side: Navigation & Title */}
                 <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" className="rounded-xl border-zinc-200 dark:border-zinc-800 shrink-0" onClick={() => navigate(`/${user.role}/dashboard`)}>
+                    <Button variant="outline" size="icon" className="rounded-xl border-zinc-200 dark:border-zinc-800 shrink-0" onClick={() => navigate(`/${userRole}/dashboard`)}>
                         <ArrowLeft size={18} />
                     </Button>
                     <div className="flex items-center gap-3">
