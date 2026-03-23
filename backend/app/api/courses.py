@@ -19,11 +19,43 @@ class DeployRequest(BaseModel):
     nodes: List[Dict[str, Any]]
     edges: List[Dict[str, Any]]
 
-@router.get("/api/courses", response_model=List[Course])
-def get_courses(supabase: Client = Depends(get_supabase_client)):
+@router.get("/api/courses", response_model=List[Any])
+def get_courses(educator_id: str = None, supabase: Client = Depends(get_supabase_client)):
     try:
-        response = supabase.table("courses").select("*").eq("is_published", True).execute()
-        return response.data
+        query = supabase.table("courses").select("*")
+        if educator_id:
+            query = query.eq("educator_id", educator_id)
+        else:
+            query = query.eq("is_published", True)
+            
+        response = query.execute()
+        courses = response.data
+        
+        # Aggregate stats for educator dashboard
+        if educator_id and courses:
+            for course in courses:
+                cid = course["id"]
+                
+                # nodes count
+                skills_res = supabase.table("skills").select("id").eq("course_id", cid).execute()
+                course["nodes_count"] = len(skills_res.data) if skills_res.data else 0
+                
+                # students count
+                enrolls_res = supabase.table("student_enrollments").select("id").eq("course_id", cid).execute()
+                course["students_count"] = len(enrolls_res.data) if enrolls_res.data else 0
+                
+                # avg mastery
+                prog_res = supabase.table("student_node_progress").select("mastery_score").eq("course_id", cid).execute()
+                if prog_res.data:
+                    scores = [p.get("mastery_score") for p in prog_res.data if p.get("mastery_score") is not None]
+                    if scores:
+                        course["avg_mastery"] = round(sum(scores) / len(scores))
+                    else:
+                        course["avg_mastery"] = 0
+                else:
+                    course["avg_mastery"] = 0
+                    
+        return courses
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

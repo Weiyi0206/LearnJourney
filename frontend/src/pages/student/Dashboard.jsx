@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { CourseService, StudentService } from "@/lib/apiClient";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -10,72 +11,74 @@ export default function StudentDashboard() {
     const navigate = useNavigate();
     const { user, profile } = useAuth();
 
-    // Mock Database for Courses
-    const allCourses = [
-        {
-            id: "course_001",
-            title: "Introduction to Python Programming",
-            educator: "Dr. Smith",
-            description: "Learn the fundamentals of Python, from variables to object-oriented programming.",
-            colorClass: "from-blue-500/10 to-indigo-500/10",
-            iconColor: "text-blue-500",
-            bgIconColor: "bg-blue-100",
-        },
-        {
-            id: "course_002",
-            title: "Advanced Data Structures & Algorithms",
-            educator: "Prof. Turing",
-            description: "Master trees, graphs, and dynamic programming.",
-            colorClass: "from-emerald-500/10 to-teal-500/10",
-            iconColor: "text-emerald-500",
-            bgIconColor: "bg-emerald-100",
-        },
-        {
-            id: "course_003",
-            title: "Machine Learning Foundations",
-            educator: "Dr. Ng",
-            description: "An introduction to regressions, classifications, and neural networks.",
-            colorClass: "from-amber-500/10 to-orange-500/10",
-            iconColor: "text-amber-500",
-            bgIconColor: "bg-amber-100",
+    const [availableCourses, setAvailableCourses] = useState([]);
+    const [enrolledCourses, setEnrolledCourses] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchAll = async () => {
+        if (!user?.id) return;
+        try {
+            setIsLoading(true);
+            const availableData = await CourseService.getAllCourses();
+            let enrolledData = [];
+            try {
+                enrolledData = await StudentService.getEnrolledCourses(user.id);
+            } catch (e) {
+                console.warn("Failed to fetch enrolled courses or no table exists yet", e);
+            }
+
+            const enrolledIdsSet = new Set(enrolledData.map(c => c.id));
+            const filteredAvailable = availableData.filter(c => !enrolledIdsSet.has(c.id));
+
+            const colors = [
+                { colorClass: "from-blue-500/10 to-indigo-500/10", iconColor: "text-blue-500", bgIconColor: "bg-blue-100 dark:bg-blue-900/30" },
+                { colorClass: "from-emerald-500/10 to-teal-500/10", iconColor: "text-emerald-500", bgIconColor: "bg-emerald-100 dark:bg-emerald-900/30" },
+                { colorClass: "from-amber-500/10 to-orange-500/10", iconColor: "text-amber-500", bgIconColor: "bg-amber-100 dark:bg-amber-900/30" }
+            ];
+
+            const mapCourse = (c, idx) => ({
+                ...c,
+                educator: "Community Educator",
+                ...colors[idx % colors.length]
+            });
+
+            setAvailableCourses(filteredAvailable.map(mapCourse));
+            setEnrolledCourses(enrolledData.map(mapCourse));
+        } catch (err) {
+            console.error("Failed to load courses:", err);
+        } finally {
+            setIsLoading(false);
         }
-    ];
+    };
 
-    // Mock State for Student's Enrollment
-    const [enrolledIds, setEnrolledIds] = useState(["course_001"]);
-    // Progress for course_001 is 34%, others are 0 by default.
-    const [progressMap, setProgressMap] = useState({
-        "course_001": { percent: 34, currentFocus: "Loops & Functions", isNew: false }
-    });
+    useEffect(() => {
+        fetchAll();
+    }, [user?.id]);
 
-    const enrolledCourses = allCourses.filter(c => enrolledIds.includes(c.id));
-    const availableCourses = allCourses.filter(c => !enrolledIds.includes(c.id));
-
-    const handleEnroll = (courseId) => {
-        setEnrolledIds([...enrolledIds, courseId]);
-        setProgressMap({
-            ...progressMap,
-            [courseId]: { percent: 0, currentFocus: "Pending Start", isNew: true }
-        });
+    const handleEnroll = async (courseId) => {
+        if (!user?.id) return;
+        try {
+            await StudentService.enroll(user.id, courseId);
+            await fetchAll();
+        } catch (err) {
+            console.error("Failed to enroll in course", err);
+        }
     };
 
     const handleResume = (courseId) => {
-        const prog = progressMap[courseId];
-        if (prog && prog.isNew) {
-            // First time entering path: Diagnostic Page
-            navigate(`/student/diagnostic/${courseId}`);
-        } else {
-            // Existing progress: Learning Path
-            navigate(`/courses/${courseId}`);
-        }
+        navigate(`/courses/${courseId}`);
     };
+
+    if (isLoading) {
+        return <div className="p-8 text-center text-zinc-500">Loading your learning journey...</div>;
+    }
 
     return (
         <div className="p-4 md:p-8 h-full overflow-auto max-w-7xl mx-auto space-y-12 pb-24">
             {/* Header */}
             <div>
                 <h1 className="text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-3">
-                    Welcome back, {(profile?.full_name || user?.user_metadata?.full_name || "Student").split(' ')[0]}.
+                    Welcome back, {((profile?.full_name || user?.user_metadata?.full_name || "Student").split(' ')[0])}.
                 </h1>
                 <p className="text-zinc-500 mt-2 font-medium text-lg">Continue your learning journey where you left off.</p>
             </div>
@@ -95,7 +98,8 @@ export default function StudentDashboard() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {enrolledCourses.map(course => {
-                            const prog = progressMap[course.id];
+                            // TODO: Fetch actual mastery from StudentService.getProgress and average it
+                            const prog = { percent: 0, currentFocus: "Getting Started" };
                             return (
                                 <Card key={course.id} className="col-span-1 flex flex-col border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden group hover:shadow-xl transition-all relative rounded-3xl shadow-md">
                                     <div className={`absolute inset-0 bg-gradient-to-br ${course.colorClass} opacity-40 pointer-events-none`} />
@@ -129,7 +133,7 @@ export default function StudentDashboard() {
                                             onClick={() => handleResume(course.id)}
                                         >
                                             <Play size={18} fill="currentColor" />
-                                            {prog.isNew ? "Start Journey" : "Resume Journey"}
+                                            Resume Journey
                                         </Button>
                                     </CardFooter>
                                 </Card>

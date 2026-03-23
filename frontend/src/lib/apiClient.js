@@ -33,6 +33,16 @@ export const CourseService = {
         }
     },
 
+    getEducatorCourses: async (educatorId) => {
+        try {
+            const response = await client.get(`/api/courses?educator_id=${educatorId}`);
+            return response.data;
+        } catch (error) {
+            console.error(`Error fetching courses for educator ${educatorId}:`, error);
+            throw error;
+        }
+    },
+
     getCourseGraph: async (courseId) => {
         try {
             const response = await client.get(`/api/courses/${courseId}`);
@@ -70,6 +80,57 @@ export const CourseAPI = {
             return response.data;
         } catch (error) {
             console.error('Error in CourseAPI.deployCourse:', error);
+            throw error;
+        }
+    }
+};
+
+export const StudentService = {
+    enroll: async (studentId, courseId) => {
+        try {
+            const response = await client.post('/api/student/enroll', { student_id: studentId, course_id: courseId });
+            return response.data;
+        } catch (error) {
+            console.error('Error enrolling student:', error);
+            throw error;
+        }
+    },
+    getEnrolledCourses: async (studentId) => {
+        try {
+            const response = await client.get(`/api/student/${studentId}/courses`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching enrolled courses:', error);
+            throw error;
+        }
+    },
+    getProgress: async (studentId, courseId) => {
+        try {
+            const response = await client.get(`/api/student/${studentId}/course/${courseId}/progress`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching student progress:', error);
+            throw error;
+        }
+    },
+    updateProgress: async (payload) => {
+        try {
+            const response = await client.post('/api/student/progress', payload);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating progress:', error);
+            throw error;
+        }
+    }
+};
+
+export const QuizService = {
+    generateQuiz: async (courseTitle, skillName) => {
+        try {
+            const response = await client.post('/api/quiz/generate', { course_title: courseTitle, skill_name: skillName });
+            return response.data;
+        } catch (error) {
+            console.error('Error generating quiz:', error);
             throw error;
         }
     }

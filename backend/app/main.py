@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.courses import router as courses_router
+from app.api.student import router as student_router
+from app.api.quiz import router as quiz_router
 
 app = FastAPI(
     title="LearnJourney API",
@@ -19,6 +21,8 @@ app.add_middleware(
 
 # Include the routers
 app.include_router(courses_router)
+app.include_router(student_router)
+app.include_router(quiz_router)
 
 @app.get("/")
 def read_root():

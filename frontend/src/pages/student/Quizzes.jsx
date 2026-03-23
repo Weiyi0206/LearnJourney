@@ -1,39 +1,71 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { CheckCircle, XCircle, BrainCircuit, ShieldAlert, Sparkles, Send } from "lucide-react";
+import { CheckCircle, XCircle, BrainCircuit, ShieldAlert, Sparkles, Send, Loader2 } from "lucide-react";
 import confetti from "canvas-confetti";
+import { QuizService, StudentService } from "@/lib/apiClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Quizzes() {
     const location = useLocation();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { state } = location;
 
+    const skillId = state?.skillId;
     const skillName = state?.skillName || "Functions";
+    const courseId = state?.courseId;
+    const courseTitle = state?.courseTitle || "Python 101";
 
     const [selectedOption, setSelectedOption] = useState(null);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [showCelebration, setShowCelebration] = useState(false);
 
-    // Mock Gemini Response Data
-    const [quizData] = useState({
-        question: `What is the output of the following Python code regarding ${skillName}?\n\ndef greet(name="World"):\n    return f"Hello {name}!"\n\nprint(greet())`,
-        options: [
-            { id: 'a', text: 'Hello!' },
-            { id: 'b', text: 'Hello World!' },
-            { id: 'c', text: 'TypeError' },
-            { id: 'd', text: 'Undefined Output Error' }
-        ],
-        correctAnswer: 'b',
-        explanation: 'When no argument is passed to a function with a default parameter, it uses the default value. Here, name defaults to "World".'
-    });
+    const [isLoading, setIsLoading] = useState(true);
+    const [quizData, setQuizData] = useState(null);
+    const [error, setError] = useState(null);
 
-    const handleSubmit = () => {
+    useEffect(() => {
+        const fetchQuiz = async () => {
+            if (!skillId) {
+                setError("No topic selected. Return to the course map and try again.");
+                setIsLoading(false);
+                return;
+            }
+            try {
+                const res = await QuizService.generateQuiz(courseTitle, skillName);
+                if (res && res.question) {
+                    const mappedOptions = res.question.options.map((opt, i) => ({
+                        id: String.fromCharCode(97 + i), // 'a', 'b', 'c', 'd'
+                        text: opt
+                    }));
+                    setQuizData({
+                        question: res.question.question,
+                        options: mappedOptions,
+                        correctAnswer: mappedOptions[res.question.correct_index].id,
+                        explanation: res.question.explanation
+                    });
+                } else {
+                    setError("Failed to parse quiz format from AI.");
+                }
+            } catch (err) {
+                console.error(err);
+                setError("The Knowledge Oracle is currently unavailable. Try again later.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchQuiz();
+    }, [courseTitle, skillName, skillId]);
+
+    const handleSubmit = async () => {
         setIsSubmitted(true);
-        if (selectedOption === quizData.correctAnswer) {
+        const isCorrect = selectedOption === quizData.correctAnswer;
+
+        if (isCorrect) {
             confetti({
                 particleCount: 200,
                 spread: 90,
@@ -41,16 +73,58 @@ export default function Quizzes() {
                 colors: ['#10b981', '#3b82f6', '#f59e0b']
             });
             setTimeout(() => setShowCelebration(true), 1200);
+
+            // Update Backend Progress
+            // Mastered status allows the backend to unlock prerequisite_edges
+            if (user?.id && courseId && skillId) {
+                try {
+                    await StudentService.updateProgress({
+                        student_id: user.id,
+                        course_id: courseId,
+                        skill_id: skillId,
+                        status: "Mastered",
+                        mastery_score: 100
+                    });
+                } catch (e) {
+                    console.error("Failed to sync progress with server:", e);
+                }
+            }
         }
     };
 
     const handleReturn = () => {
-        navigate("/courses/course_001");
+        if (courseId) {
+            navigate(`/courses/${courseId}`);
+        } else {
+            navigate("/student/dashboard");
+        }
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <div className="flex flex-col items-center gap-4 text-amber-500">
+                    <Loader2 className="animate-spin" size={48} />
+                    <p className="font-bold tracking-widest text-zinc-500 uppercase text-sm">Generating knowledge check...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !quizData) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <Card className="max-w-md p-8 text-center border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900">
+                    <XCircle className="mx-auto text-red-500 mb-4" size={48} />
+                    <h2 className="text-xl font-bold text-red-700 dark:text-red-400 mb-2">{error}</h2>
+                    <Button onClick={handleReturn} className="mt-4">Go Back</Button>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 md:p-8 h-full overflow-auto max-w-7xl mx-auto flex flex-col gap-6">
-
             {/* Quiz Header Bento */}
             <Card className="flex items-center p-6 border-zinc-200/60 dark:border-zinc-800 bg-gradient-to-r from-blue-500/10 to-indigo-500/5 backdrop-blur-md shadow-sm border-none">
                 <div className="flex-1 flex items-center justify-between">
@@ -59,7 +133,7 @@ export default function Quizzes() {
                             <BrainCircuit size={32} />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-锌-50">Generative Knowledge Check</h1>
+                            <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">Generative Knowledge Check</h1>
                             <p className="text-lg font-medium text-blue-600/80 mt-1 flex items-center gap-2">
                                 <Sparkles size={18} /> Testing Mastery on {skillName}
                             </p>
@@ -69,7 +143,6 @@ export default function Quizzes() {
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto min-h-[500px]">
-
                 {/* Question Block (col-span-2) */}
                 <Card className="col-span-1 md:col-span-2 border-zinc-200/60 dark:border-zinc-800 shadow-xl flex flex-col overflow-hidden">
                     <CardHeader className="bg-zinc-50 border-b border-zinc-100 dark:bg-zinc-950 dark:border-zinc-900 pb-4">
@@ -110,9 +183,8 @@ export default function Quizzes() {
                                     onClick={() => !isSubmitted && setSelectedOption(option.id)}
                                     disabled={isSubmitted}
                                 >
-                                    {/* Letter box decoration for bento vibe */}
                                     <span className={`w-8 h-8 flex items-center justify-center rounded-lg mr-4 text-sm tracking-wider uppercase flex-shrink-0 transition-colors
-                        ${(isSelected && !isSubmitted) ? "bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200" :
+                                        ${(isSelected && !isSubmitted) ? "bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200" :
                                             isCorrectRow ? "bg-emerald-200 text-emerald-800 dark:bg-emerald-800 dark:text-emerald-200" :
                                                 isWrongRow ? "bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200" :
                                                     "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
@@ -156,7 +228,6 @@ export default function Quizzes() {
                         )}
                     </Card>
                 </div>
-
             </div>
 
             <Dialog open={showCelebration} onOpenChange={setShowCelebration}>
@@ -180,6 +251,6 @@ export default function Quizzes() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }

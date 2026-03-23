@@ -74,7 +74,7 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                 <Button
                     size="lg"
                     className="w-full text-lg font-bold py-6 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-2xl transition-transform active:scale-95 rounded-xl border-4 border-zinc-900/10 dark:border-white/10"
-                    onClick={() => navigate("/student/quizzes", { state: { skillId: node?.id, skillName: node?.data?.label } })}
+                    onClick={() => navigate("/student/quizzes", { state: { skillId: node?.id, skillName: node?.data?.label, courseId: fullCourseData.id, courseTitle: fullCourseData.title } })}
                 >
                     Take Verification Quiz
                 </Button>

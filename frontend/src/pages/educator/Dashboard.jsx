@@ -1,53 +1,55 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Users, GitGraph, Settings2, BarChart3, TrendingUp, Calendar, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { CourseService } from "@/lib/apiClient";
 
 export default function EducatorDashboard() {
     const navigate = useNavigate();
+    const { user } = useAuth();
 
-    // Integrated Courses List Data
-    const courses = [
-        {
-            id: "course_001",
-            title: "Introduction to Python Programming",
-            status: "Published",
-            students: 142,
-            nodes: 14,
-            avgMastery: 68,
-            lastUpdated: "2 Days Ago",
-            colorClass: "from-blue-500/10 to-indigo-500/10",
-            iconColor: "text-blue-500",
-            bgIconColor: "bg-blue-100 dark:bg-blue-900/30",
-        },
-        {
-            id: "course_002",
-            title: "Advanced Data Structures & Algorithms",
-            status: "Published",
-            students: 84,
-            nodes: 26,
-            avgMastery: 42,
-            lastUpdated: "1 Week Ago",
-            colorClass: "from-emerald-500/10 to-teal-500/10",
-            iconColor: "text-emerald-500",
-            bgIconColor: "bg-emerald-100 dark:bg-emerald-900/30",
-        },
-        {
-            id: "course_003",
-            title: "Machine Learning Foundations",
-            status: "Draft",
-            students: 0,
-            nodes: 31,
-            avgMastery: 0,
-            lastUpdated: "4 Hours Ago",
-            colorClass: "from-amber-500/10 to-orange-500/10",
-            iconColor: "text-amber-500",
-            bgIconColor: "bg-amber-100 dark:bg-amber-900/30",
-        }
-    ];
+    const [courses, setCourses] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchCourses = async () => {
+            if (!user?.id) return;
+            try {
+                const data = await CourseService.getEducatorCourses(user.id);
+                // Map the backend data to our UI format
+                const mappedCourses = data.map((c, index) => {
+                    const colors = [
+                        { colorClass: "from-blue-500/10 to-indigo-500/10", iconColor: "text-blue-500", bgIconColor: "bg-blue-100 dark:bg-blue-900/30" },
+                        { colorClass: "from-emerald-500/10 to-teal-500/10", iconColor: "text-emerald-500", bgIconColor: "bg-emerald-100 dark:bg-emerald-900/30" },
+                        { colorClass: "from-amber-500/10 to-orange-500/10", iconColor: "text-amber-500", bgIconColor: "bg-amber-100 dark:bg-amber-900/30" },
+                        { colorClass: "from-pink-500/10 to-rose-500/10", iconColor: "text-pink-500", bgIconColor: "bg-pink-100 dark:bg-pink-900/30" }
+                    ];
+                    const theme = colors[index % colors.length];
+                    return {
+                        id: c.id,
+                        title: c.title,
+                        status: c.is_published ? "Published" : "Draft",
+                        students: c.students_count || 0,
+                        nodes: c.nodes_count || 0,
+                        avgMastery: c.avg_mastery || 0,
+                        lastUpdated: new Date(c.created_at).toLocaleDateString(),
+                        ...theme
+                    };
+                });
+                setCourses(mappedCourses);
+            } catch (err) {
+                console.error("Failed to load courses", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchCourses();
+    }, [user]);
 
     return (
         <div className="p-4 md:p-8 h-full overflow-auto max-w-7xl mx-auto space-y-8">

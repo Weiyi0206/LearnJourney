@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { mockCourseData } from "@/data/mockCourseData";
+import { CourseService } from "@/lib/apiClient";
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 
 // Shadcn UI
@@ -31,8 +31,12 @@ export default function CourseView() {
     const userRole = profile?.role || user?.user_metadata?.role || "student";
     const isEducator = userRole === "educator";
 
-    // Mock course data logic
-    const course = mockCourseData;
+    // API Data state
+    const [course, setCourse] = useState(null);
+    const [displayNodes, setDisplayNodes] = useState([]);
+    const [editableNodes, setEditableNodes] = useState([]);
+    const [editableEdges, setEditableEdges] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Educator: edit mode toggle
     const [isEditMode, setIsEditMode] = useState(false);
@@ -40,20 +44,131 @@ export default function CourseView() {
     // Modals / Overlays State
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState(null);
-
-    // Editable graph state (for educator edit mode)
-    const [editableNodes, setEditableNodes] = useState(() =>
-        course.graph.nodes.map(n => ({
-            ...n,
-            type: 'editorNode',
-            data: { label: n.data.label },
-        }))
-    );
-    const [editableEdges, setEditableEdges] = useState([...course.graph.edges]);
     const [nodeCounter, setNodeCounter] = useState(100);
 
     // Settings dialog (for edit mode)
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    // Simple layout algorithm
+    const layoutGraph = useCallback((nodes, edges) => {
+        const layers = {};
+        const indegree = {};
+        const adjacency = {};
+
+        nodes.forEach(n => {
+            indegree[n.id] = 0;
+            adjacency[n.id] = [];
+        });
+
+        edges.forEach(e => {
+            if (indegree[e.target] !== undefined) indegree[e.target]++;
+            if (adjacency[e.source]) adjacency[e.source].push(e.target);
+        });
+
+        let currentLayer = 0;
+        let queue = Object.keys(indegree).filter(id => indegree[id] === 0);
+        const assigned = new Set();
+
+        while (queue.length > 0) {
+            layers[currentLayer] = queue;
+            const nextQueue = [];
+            queue.forEach(id => {
+                assigned.add(id);
+                adjacency[id].forEach(neighbor => {
+                    indegree[neighbor]--;
+                    if (indegree[neighbor] === 0) {
+                        nextQueue.push(neighbor);
+                    }
+                });
+            });
+            queue = nextQueue;
+            currentLayer++;
+        }
+
+        const unassigned = nodes.filter(n => !assigned.has(n.id)).map(n => n.id);
+        if (unassigned.length > 0) {
+            layers[currentLayer] = unassigned;
+        }
+
+        const xOffset = 300;
+        const yOffset = 150;
+        const newNodes = [...nodes];
+
+        Object.keys(layers).forEach(layerIdx => {
+            const layerNodes = layers[layerIdx];
+            const numNodes = layerNodes.length;
+            const startY = -((numNodes - 1) * yOffset) / 2;
+
+            layerNodes.forEach((nodeId, idx) => {
+                const node = newNodes.find(n => n.id === nodeId);
+                if (node) {
+                    node.position = { x: parseInt(layerIdx) * xOffset, y: startY + idx * yOffset };
+                }
+            });
+        });
+
+        return newNodes;
+    }, []);
+
+    useEffect(() => {
+        const fetchGraph = async () => {
+            try {
+                setIsLoading(true);
+                const data = await CourseService.getCourseGraph(courseId);
+
+                const mappedEdges = data.prerequisite_edges.map(e => ({
+                    id: `e-${e.source_skill_id}-${e.target_skill_id}`,
+                    source: e.source_skill_id,
+                    target: e.target_skill_id,
+                    type: 'default',
+                    animated: true,
+                    style: { stroke: '#818cf8', strokeWidth: 3 }
+                }));
+
+                const mappedNodes = data.skills.map(s => {
+                    let studentStatus = 'Locked';
+                    if (!isEducator) {
+                        // Temp mock unlocking logic for student demo until we add real logic
+                        if (data.skills.indexOf(s) === 0) studentStatus = 'Mastered';
+                        else if (data.skills.indexOf(s) === 1 || data.skills.indexOf(s) === 2) studentStatus = 'Unlocked';
+                    }
+
+                    return {
+                        id: s.id,
+                        type: 'customNode',
+                        position: { x: 0, y: 0 },
+                        data: {
+                            label: s.name,
+                            isEducator,
+                            studentStatus,
+                            hasAlert: false, // fake stat
+                            isDraggable: false
+                        }
+                    };
+                });
+
+                const layedOutNodes = layoutGraph(mappedNodes, mappedEdges);
+
+                setCourse({
+                    ...data,
+                    title: data.title,
+                    description: data.description,
+                    status: data.is_published ? "Published" : "Draft",
+                    generalAnalytics: { enrolled: 0 }, // fake stat
+                    studentsList: [] // fake stat
+                });
+
+                setDisplayNodes(layedOutNodes);
+                setEditableNodes(layedOutNodes.map(n => ({ ...n, type: 'editorNode' })));
+                setEditableEdges(mappedEdges);
+            } catch (err) {
+                console.error("Failed to fetch course graph:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchGraph();
+    }, [courseId, isEducator, layoutGraph]);
 
     // ---- DAG helpers for edit mode ----
     const wouldCreateCycle = useCallback((sourceId, targetId, currentEdges) => {
@@ -144,33 +259,21 @@ export default function CourseView() {
         setIsSheetOpen(true);
     };
 
-    // Prepare Custom Nodes Payload (view mode)
-    const displayNodes = course.graph.nodes.map(n => {
-        let hasAlert = false;
-        if (isEducator && course.nodesData[n.id]?.analytics?.failRate) {
-            const failScore = parseInt(course.nodesData[n.id].analytics.failRate.replace('%', ''));
-            if (failScore > 30) hasAlert = true;
-        }
+    if (isLoading) {
+        return (
+            <div className="flex flex-col h-full items-center justify-center text-zinc-500">
+                <p>Loading course content...</p>
+            </div>
+        );
+    }
 
-        let studentStatus = 'Locked';
-        if (!isEducator) {
-            if (n.id === '1') studentStatus = 'Mastered';
-            else if (n.id === '2' || n.id === '3') studentStatus = 'Unlocked';
-        }
-
-        return {
-            ...n,
-            type: 'customNode',
-            style: undefined,          // strip any legacy inline styles from mock data
-            data: {
-                label: n.data.label,   // only carry through what CustomNode needs
-                isEducator,
-                studentStatus,
-                hasAlert,
-                isDraggable: false,    // no drag-handle hint in view mode
-            }
-        };
-    });
+    if (!course) {
+        return (
+            <div className="flex flex-col h-full items-center justify-center text-red-500">
+                <p>Failed to load course.</p>
+            </div>
+        );
+    }
 
     // ---- EDIT MODE RENDER ----
     if (isEducator && isEditMode) {
@@ -258,7 +361,7 @@ export default function CourseView() {
                                     <DialogHeader className="p-4 md:p-6 pb-0">
                                         <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest mb-1"><Activity size={14} /> Cohort Overview</div>
                                         <DialogTitle className="text-2xl font-extrabold flex items-center justify-between">
-                                            Student Progress Table <span className="text-zinc-400 text-sm font-medium">{course.generalAnalytics.enrolled} Enrolled</span>
+                                            Student Progress Table <span className="text-zinc-400 text-sm font-medium">{course?.generalAnalytics?.enrolled || 0} Enrolled</span>
                                         </DialogTitle>
                                         <DialogDescription className="text-zinc-500 font-medium">Holistic view of current mastery levels across all nodes.</DialogDescription>
                                     </DialogHeader>
@@ -272,7 +375,7 @@ export default function CourseView() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody className="bg-transparent border-t border-zinc-100 dark:border-zinc-800">
-                                                {course.studentsList.map((student) => (
+                                                {course?.studentsList?.map((student) => (
                                                     <TableRow key={student.id} className="border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/30">
                                                         <TableCell className="font-bold">{student.name}</TableCell>
                                                         <TableCell className="text-sm text-zinc-500">{student.lastActive}</TableCell>
@@ -310,7 +413,7 @@ export default function CourseView() {
             <main className="flex-1 w-full relative outline-none">
                 <CourseGraph
                     nodes={displayNodes}
-                    edges={course.graph.edges}
+                    edges={editableEdges} // mappedEdges = editableEdges during read
                     onNodeClick={onNodeClick}
                     isEducator={isEducator}
                 />
