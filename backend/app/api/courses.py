@@ -156,10 +156,13 @@ def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabas
         # 2. Iterate through the nodes. Insert them into the skills table
         for node in request.nodes:
             old_id = node.get("id")
-            label = node.get("data", {}).get("label", "Unknown Skill")
+            node_data = node.get("data", {})
+            label = node_data.get("label", "Unknown Skill")
             skill_data = {
                 "course_id": course_id,
-                "name": label
+                "name": label,
+                "questions_count": node_data.get("questions_count", 20),
+                "pass_threshold": node_data.get("pass_threshold", 60)
             }
             skill_res = supabase.table("skills").insert(skill_data).execute()
             if skill_res.data:
@@ -185,3 +188,47 @@ def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabas
         return { "status": "success", "course_id": course_id }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Skill Settings Update (Educator) ──
+
+class SkillSettingsUpdate(BaseModel):
+    questions_count: int = 20
+    pass_threshold: int = 60
+    name: str = None
+
+@router.put("/api/skills/{skill_id}")
+def update_skill_settings(skill_id: str, req: SkillSettingsUpdate, supabase: Client = Depends(get_supabase_client)):
+    """Update settings for a single skill node"""
+    try:
+        update_data = {
+            "questions_count": req.questions_count,
+            "pass_threshold": req.pass_threshold
+        }
+        if req.name:
+            update_data["name"] = req.name
+        res = supabase.table("skills").update(update_data).eq("id", skill_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Skill not found")
+        return res.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class CourseSettingsUpdate(BaseModel):
+    questions_count: int = 20
+    pass_threshold: int = 60
+
+@router.put("/api/courses/{course_id}/settings")
+def update_course_settings(course_id: str, req: CourseSettingsUpdate, supabase: Client = Depends(get_supabase_client)):
+    """Update quiz settings for ALL skills in a course at once"""
+    try:
+        res = supabase.table("skills").update({
+            "questions_count": req.questions_count,
+            "pass_threshold": req.pass_threshold
+        }).eq("course_id", course_id).execute()
+        return {"status": "success", "updated": len(res.data) if res.data else 0}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

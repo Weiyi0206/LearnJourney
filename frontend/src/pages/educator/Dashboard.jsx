@@ -75,7 +75,7 @@ export default function EducatorDashboard() {
                     </div>
                     <div>
                         <div className="text-sm font-semibold text-zinc-500 uppercase tracking-widest">Active Curricula</div>
-                        <div className="text-4xl font-extrabold mt-1">3</div>
+                        <div className="text-4xl font-extrabold mt-1">{courses.length}</div>
                     </div>
                 </Card>
 
@@ -85,7 +85,7 @@ export default function EducatorDashboard() {
                     </div>
                     <div>
                         <div className="text-sm font-semibold text-zinc-500 uppercase tracking-widest">Total Students</div>
-                        <div className="text-4xl font-extrabold mt-1">226</div>
+                        <div className="text-4xl font-extrabold mt-1">{courses.reduce((sum, c) => sum + (c.students || 0), 0)}</div>
                     </div>
                 </Card>
 

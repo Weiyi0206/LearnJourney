@@ -21,6 +21,8 @@ class Course(CourseBase):
 class SkillBase(BaseModel):
     name: str
     complexity_score: float = 0.0
+    questions_count: int = 20
+    pass_threshold: int = 60
 
 class Skill(SkillBase):
     id: UUID

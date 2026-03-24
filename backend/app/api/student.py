@@ -187,3 +187,65 @@ def update_progress(req: ProgressUpdateRequest, supabase: Client = Depends(get_s
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/student/roster/{course_id}")
+def get_course_roster(course_id: str, supabase: Client = Depends(get_supabase_client)):
+    """Get all enrolled students for a course with their progress (educator view)"""
+    try:
+        # Get enrollments
+        enrollments = supabase.table("student_enrollments").select("student_id, created_at").eq("course_id", course_id).execute()
+        if not enrollments.data:
+            return []
+
+        # Get total skills count for this course
+        skills_res = supabase.table("skills").select("id").eq("course_id", course_id).execute()
+        total_nodes = len(skills_res.data) if skills_res.data else 0
+
+        roster = []
+        for enrollment in enrollments.data:
+            sid = enrollment["student_id"]
+            enrolled_at = enrollment.get("created_at", "")
+
+            # Default values
+            name = "Unknown"
+            mastered = 0
+            last_active = enrolled_at
+
+            # Get student name
+            try:
+                prof_res = supabase.table("profiles").select("full_name").eq("id", sid).execute()
+                if prof_res.data:
+                    name = prof_res.data[0].get("full_name") or "Unknown"
+            except Exception:
+                pass
+
+            # Get mastered count
+            try:
+                prog_res = supabase.table("student_node_progress").select("status").eq("student_id", sid).eq("course_id", course_id).execute()
+                if prog_res.data:
+                    mastered = sum(1 for p in prog_res.data if p.get("status") == "Mastered")
+            except Exception:
+                pass
+
+            # Get last quiz attempt date (skip if table is empty or RLS blocks)
+            try:
+                last_quiz = supabase.table("quiz_attempts").select("created_at").eq("student_id", sid).eq("course_id", course_id).order("created_at", desc=True).limit(1).execute()
+                if last_quiz.data:
+                    last_active = last_quiz.data[0]["created_at"]
+            except Exception:
+                pass  # quiz_attempts may be empty or RLS may restrict
+
+            roster.append({
+                "id": sid,
+                "name": name,
+                "completedNodes": mastered,
+                "totalNodes": total_nodes,
+                "lastActive": last_active
+            })
+
+        return roster
+    except Exception as e:
+        print(f"Roster error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+

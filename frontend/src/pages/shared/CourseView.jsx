@@ -166,13 +166,23 @@ export default function CourseView() {
 
                 const layedOutNodes = layoutGraph(mappedNodes, mappedEdges);
 
+                // Fetch real roster for educators
+                let studentsList = [];
+                if (isEducator) {
+                    try {
+                        studentsList = await StudentService.getCourseRoster(courseId);
+                    } catch (e) {
+                        console.warn("Could not fetch roster", e);
+                    }
+                }
+
                 setCourse({
                     ...data,
                     title: data.title,
                     description: data.description,
                     status: data.is_published ? "Published" : "Draft",
-                    generalAnalytics: { enrolled: 0 }, // fake stat
-                    studentsList: [] // fake stat
+                    generalAnalytics: { enrolled: studentsList.length },
+                    studentsList
                 });
 
                 setDisplayNodes(layedOutNodes);
@@ -383,28 +393,34 @@ export default function CourseView() {
                                         <DialogDescription className="text-zinc-500 font-medium">Holistic view of current mastery levels across all nodes.</DialogDescription>
                                     </DialogHeader>
                                     <div className="p-4 md:p-6 max-h-[60vh] overflow-y-auto no-scrollbar">
-                                        <Table>
-                                            <TableHeader className="bg-zinc-50 dark:bg-zinc-900/50">
-                                                <TableRow className="border-zinc-100 dark:border-zinc-800">
-                                                    <TableHead className="font-bold">Student Name</TableHead>
-                                                    <TableHead className="font-bold">Last Active</TableHead>
-                                                    <TableHead className="font-bold text-center">Mastery Status</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody className="bg-transparent border-t border-zinc-100 dark:border-zinc-800">
-                                                {course?.studentsList?.map((student) => (
-                                                    <TableRow key={student.id} className="border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/30">
-                                                        <TableCell className="font-bold">{student.name}</TableCell>
-                                                        <TableCell className="text-sm text-zinc-500">{student.lastActive}</TableCell>
-                                                        <TableCell className="text-center">
-                                                            <Badge variant="secondary" className="font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 whitespace-nowrap px-3 py-1">
-                                                                {student.completedNodes} / {student.totalNodes} Nodes Perfected
-                                                            </Badge>
-                                                        </TableCell>
+                                        {course?.studentsList?.length > 0 ? (
+                                            <Table>
+                                                <TableHeader className="bg-zinc-50 dark:bg-zinc-900/50">
+                                                    <TableRow className="border-zinc-100 dark:border-zinc-800">
+                                                        <TableHead className="font-bold">Student Name</TableHead>
+                                                        <TableHead className="font-bold">Last Active</TableHead>
+                                                        <TableHead className="font-bold text-center">Mastery Status</TableHead>
                                                     </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                                </TableHeader>
+                                                <TableBody className="bg-transparent border-t border-zinc-100 dark:border-zinc-800">
+                                                    {course?.studentsList?.map((student) => (
+                                                        <TableRow key={student.id} className="border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/30">
+                                                            <TableCell className="font-bold">{student.name}</TableCell>
+                                                            <TableCell className="text-sm text-zinc-500">{new Date(student.lastActive).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</TableCell>
+                                                            <TableCell className="text-center">
+                                                                <Badge variant="secondary" className="font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 whitespace-nowrap px-3 py-1">
+                                                                    {student.completedNodes} / {student.totalNodes} Nodes Perfected
+                                                                </Badge>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        ) : (
+                                            <div className="py-12 text-center text-zinc-400 font-medium">
+                                                No students enrolled yet.
+                                            </div>
+                                        )}
                                     </div>
                                 </DialogContent>
                             </Dialog>

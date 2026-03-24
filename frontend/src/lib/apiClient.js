@@ -82,6 +82,24 @@ export const CourseAPI = {
             console.error('Error in CourseAPI.deployCourse:', error);
             throw error;
         }
+    },
+    updateSkillSettings: async (skillId, settings) => {
+        try {
+            const response = await client.put(`/api/skills/${skillId}`, settings);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating skill settings:', error);
+            throw error;
+        }
+    },
+    updateCourseSettings: async (courseId, settings) => {
+        try {
+            const response = await client.put(`/api/courses/${courseId}/settings`, settings);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating course settings:', error);
+            throw error;
+        }
     }
 };
 
@@ -121,16 +139,59 @@ export const StudentService = {
             console.error('Error updating progress:', error);
             throw error;
         }
+    },
+    getCourseRoster: async (courseId) => {
+        try {
+            const response = await client.get(`/api/student/roster/${courseId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching course roster:', error);
+            throw error;
+        }
     }
 };
 
 export const QuizService = {
-    generateQuiz: async (courseTitle, skillName) => {
+    generateQuiz: async ({ courseTitle, skillName, skillId, courseId, numQuestions = 20, masteredPrerequisites = [] }) => {
         try {
-            const response = await client.post('/api/quiz/generate', { course_title: courseTitle, skill_name: skillName });
+            const response = await client.post('/api/quiz/generate', {
+                course_title: courseTitle,
+                skill_name: skillName,
+                skill_id: skillId,
+                course_id: courseId,
+                num_questions: numQuestions,
+                mastered_prerequisites: masteredPrerequisites
+            });
             return response.data;
         } catch (error) {
             console.error('Error generating quiz:', error);
+            throw error;
+        }
+    },
+    submitQuiz: async (payload) => {
+        try {
+            const response = await client.post('/api/quiz/submit', payload);
+            return response.data;
+        } catch (error) {
+            console.error('Error submitting quiz:', error);
+            throw error;
+        }
+    },
+    getHistory: async (studentId, skillId) => {
+        try {
+            const response = await client.get(`/api/quiz/history/${studentId}/${skillId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching quiz history:', error);
+            throw error;
+        }
+    },
+    getCourseHistory: async (courseId) => {
+        try {
+            const response = await client.get(`/api/quiz/history/course/${courseId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching course quiz history:', error);
             throw error;
         }
     }
