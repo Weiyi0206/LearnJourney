@@ -73,10 +73,18 @@ export default function StudentNodePanel({ node, fullCourseData }) {
             <div className="p-6 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/80 dark:bg-zinc-900/80 mt-auto shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-10 sticky bottom-0">
                 <Button
                     size="lg"
-                    className="w-full text-lg font-bold py-6 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-2xl transition-transform active:scale-95 rounded-xl border-4 border-zinc-900/10 dark:border-white/10"
-                    onClick={() => navigate("/student/quizzes", { state: { skillId: node?.id, skillName: node?.data?.label, courseId: fullCourseData.id, courseTitle: fullCourseData.title } })}
+                    className={`w-full text-lg font-bold py-6 shadow-2xl transition-transform active:scale-95 rounded-xl border-4 ${status === 'Mastered'
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-50 cursor-not-allowed opacity-80"
+                        : "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 border-zinc-900/10 dark:border-white/10"
+                        }`}
+                    onClick={() => status !== 'Mastered' && navigate("/student/quizzes", { state: { skillId: node?.id, skillName: node?.data?.label, courseId: fullCourseData.id, courseTitle: fullCourseData.title, status } })}
+                    disabled={status === 'Mastered'}
                 >
-                    Take Verification Quiz
+                    {status === 'Mastered' ? (
+                        <><CheckCircle2 className="mr-2" size={20} /> Content Mastered</>
+                    ) : (
+                        "Take Verification Quiz"
+                    )}
                 </Button>
             </div>
         </SheetContent>

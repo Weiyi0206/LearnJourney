@@ -70,8 +70,78 @@ def get_enrolled_courses(student_id: UUID, supabase: Client = Depends(get_supaba
         if not course_ids:
             return []
         
-        courses = supabase.table("courses").select("*").in_("id", course_ids).execute()
-        return courses.data
+        try:
+            courses_res = supabase.table("courses").select("*, profiles(full_name)").in_("id", course_ids).execute()
+        except Exception:
+            courses_res = supabase.table("courses").select("*").in_("id", course_ids).execute()
+        courses = courses_res.data
+        
+        from collections import defaultdict
+        course_stats = defaultdict(lambda: {"total": 0, "mastered": 0})
+        course_foci = {}
+        
+        try:
+            progress_res = supabase.table("student_node_progress").select("course_id, status, skills(name)").eq("student_id", str(student_id)).in_("course_id", course_ids).execute()
+        except Exception:
+            progress_res = supabase.table("student_node_progress").select("*").eq("student_id", str(student_id)).in_("course_id", course_ids).execute()
+        
+        for p in progress_res.data:
+            c_id = p["course_id"]
+            course_stats[c_id]["total"] += 1
+            if p["status"] == "Mastered":
+                course_stats[c_id]["mastered"] += 1
+            elif p["status"] == "Unlocked" and c_id not in course_foci:
+                skill_info = p.get("skills")
+                if skill_info and isinstance(skill_info, dict):
+                    course_foci[c_id] = skill_info.get("name", "Continue Learning")
+                else:
+                    # Fallback: lookup skill name manually
+                    s_id = p.get("skill_id")
+                    if s_id and c_id not in course_foci:
+                        try:
+                            skill_res = supabase.table("skills").select("name").eq("id", s_id).execute()
+                            if skill_res.data:
+                                course_foci[c_id] = skill_res.data[0].get("name", "Continue Learning")
+                        except Exception:
+                            pass
+                    
+        result = []
+        for c in courses:
+            c_id = c["id"]
+            total = course_stats[c_id]["total"]
+            mastered = course_stats[c_id]["mastered"]
+            percent = round((mastered / total * 100)) if total > 0 else 0
+            curr_focus = course_foci.get(c_id, "Completed" if percent == 100 else "Getting Started")
+            
+            prof = c.get("profiles")
+            if prof and isinstance(prof, dict):
+                educator_name = prof.get("full_name", "Community Educator")
+            else:
+                eid = c.get("educator_id")
+                educator_name = "Community Educator"
+                if eid:
+                    try:
+                        prof_res = supabase.table("profiles").select("full_name").eq("id", eid).execute()
+                        if prof_res.data:
+                            educator_name = prof_res.data[0].get("full_name", "Community Educator")
+                    except Exception:
+                        pass
+            
+            c_data = {
+                **c,
+                "educator": educator_name,
+                "progress": {
+                    "total": total,
+                    "mastered": mastered,
+                    "percent": percent,
+                    "currentFocus": curr_focus,
+                    "text": f"{mastered} / {total} Nodes"
+                }
+            }
+            c_data.pop("profiles", None)
+            result.append(c_data)
+        
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

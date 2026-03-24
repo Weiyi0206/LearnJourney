@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { CourseService } from "@/lib/apiClient";
+import { CourseService, StudentService } from "@/lib/apiClient";
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 
 // Shadcn UI
@@ -45,6 +45,7 @@ export default function CourseView() {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState(null);
     const [nodeCounter, setNodeCounter] = useState(100);
+    const [studentStats, setStudentStats] = useState({ mastered: 0, total: 0, percent: 0 });
 
     // Settings dialog (for edit mode)
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -116,6 +117,24 @@ export default function CourseView() {
                 setIsLoading(true);
                 const data = await CourseService.getCourseGraph(courseId);
 
+                let progressMap = {};
+                let enrolledTotal = data.skills.length;
+                let masteredCount = 0;
+
+                if (!isEducator && user?.id) {
+                    try {
+                        const progData = await StudentService.getProgress(user.id, courseId);
+                        progData.forEach(p => {
+                            progressMap[p.skill_id] = p.status;
+                            if (p.status === 'Mastered') masteredCount++;
+                        });
+                        const percent = enrolledTotal > 0 ? Math.round((masteredCount / enrolledTotal) * 100) : 0;
+                        setStudentStats({ mastered: masteredCount, total: enrolledTotal, percent });
+                    } catch (e) {
+                        console.warn("Could not fetch progress", e);
+                    }
+                }
+
                 const mappedEdges = data.prerequisite_edges.map(e => ({
                     id: `e-${e.source_skill_id}-${e.target_skill_id}`,
                     source: e.source_skill_id,
@@ -128,9 +147,7 @@ export default function CourseView() {
                 const mappedNodes = data.skills.map(s => {
                     let studentStatus = 'Locked';
                     if (!isEducator) {
-                        // Temp mock unlocking logic for student demo until we add real logic
-                        if (data.skills.indexOf(s) === 0) studentStatus = 'Mastered';
-                        else if (data.skills.indexOf(s) === 1 || data.skills.indexOf(s) === 2) studentStatus = 'Unlocked';
+                        studentStatus = progressMap[s.id] || 'Locked';
                     }
 
                     return {
@@ -168,7 +185,7 @@ export default function CourseView() {
             }
         };
         fetchGraph();
-    }, [courseId, isEducator, layoutGraph]);
+    }, [courseId, isEducator, layoutGraph, user?.id]);
 
     // ---- DAG helpers for edit mode ----
     const wouldCreateCycle = useCallback((sourceId, targetId, currentEdges) => {
@@ -400,9 +417,9 @@ export default function CourseView() {
                             <div className="flex flex-col min-w-[120px]">
                                 <div className="flex justify-between items-center w-full pb-1">
                                     <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Mastery</span>
-                                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">1 / 4 Nodes</span>
+                                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">{studentStats.mastered} / {studentStats.total} Nodes</span>
                                 </div>
-                                <Progress value={25} className="h-2 bg-zinc-200 dark:bg-zinc-700 [&>div]:bg-emerald-500" />
+                                <Progress value={studentStats.percent} className="h-2 bg-zinc-200 dark:bg-zinc-700 [&>div]:bg-emerald-500" />
                             </div>
                         </div>
                     )}

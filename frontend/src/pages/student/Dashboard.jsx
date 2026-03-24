@@ -38,7 +38,7 @@ export default function StudentDashboard() {
 
             const mapCourse = (c, idx) => ({
                 ...c,
-                educator: "Community Educator",
+                educator: c.educator_name || c.educator || "Community Educator",
                 ...colors[idx % colors.length]
             });
 
@@ -98,8 +98,7 @@ export default function StudentDashboard() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {enrolledCourses.map(course => {
-                            // TODO: Fetch actual mastery from StudentService.getProgress and average it
-                            const prog = { percent: 0, currentFocus: "Getting Started" };
+                            const prog = course.progress || { percent: 0, currentFocus: "Getting Started", text: "0 / 0 Nodes" };
                             return (
                                 <Card key={course.id} className="col-span-1 flex flex-col border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden group hover:shadow-xl transition-all relative rounded-3xl shadow-md">
                                     <div className={`absolute inset-0 bg-gradient-to-br ${course.colorClass} opacity-40 pointer-events-none`} />
@@ -119,7 +118,7 @@ export default function StudentDashboard() {
                                     <CardContent className="pt-2 flex-grow flex flex-col justify-end relative z-10">
                                         <div className="space-y-3 p-4 bg-white/50 dark:bg-black/20 rounded-2xl backdrop-blur-sm border border-zinc-100 dark:border-zinc-800/50">
                                             <div className="flex justify-between text-sm font-bold">
-                                                <span className="text-zinc-600 dark:text-zinc-400">Mastery Level</span>
+                                                <span className="text-zinc-600 dark:text-zinc-400">Mastery Level <span className="opacity-70 text-[10px] ml-1 uppercase">{prog.text}</span></span>
                                                 <span className={`${course.iconColor} font-black`}>{prog.percent}%</span>
                                             </div>
                                             <Progress value={prog.percent} className="h-3 bg-zinc-200 dark:bg-zinc-800 [&>div]:bg-current" style={{ color: 'currentColor' }} />

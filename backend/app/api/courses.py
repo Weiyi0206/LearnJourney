@@ -22,7 +22,12 @@ class DeployRequest(BaseModel):
 @router.get("/api/courses", response_model=List[Any])
 def get_courses(educator_id: str = None, supabase: Client = Depends(get_supabase_client)):
     try:
-        query = supabase.table("courses").select("*")
+        # Try join with profiles for educator name
+        try:
+            query = supabase.table("courses").select("*, profiles(full_name)")
+        except Exception:
+            query = supabase.table("courses").select("*")
+
         if educator_id:
             query = query.eq("educator_id", educator_id)
         else:
@@ -31,30 +36,50 @@ def get_courses(educator_id: str = None, supabase: Client = Depends(get_supabase
         response = query.execute()
         courses = response.data
         
-        # Aggregate stats for educator dashboard
-        if educator_id and courses:
+        if courses:
             for course in courses:
                 cid = course["id"]
                 
-                # nodes count
-                skills_res = supabase.table("skills").select("id").eq("course_id", cid).execute()
-                course["nodes_count"] = len(skills_res.data) if skills_res.data else 0
+                # Educator Name mapping
+                prof = course.get("profiles")
+                if prof and isinstance(prof, dict):
+                    course["educator_name"] = prof.get("full_name", "Community Educator")
+                else:
+                    # Fallback: lookup profile separately
+                    eid = course.get("educator_id")
+                    if eid:
+                        try:
+                            prof_res = supabase.table("profiles").select("full_name").eq("id", eid).execute()
+                            if prof_res.data:
+                                course["educator_name"] = prof_res.data[0].get("full_name", "Community Educator")
+                            else:
+                                course["educator_name"] = "Community Educator"
+                        except Exception:
+                            course["educator_name"] = "Community Educator"
+                    else:
+                        course["educator_name"] = "Community Educator"
+                course.pop("profiles", None)
                 
-                # students count
-                enrolls_res = supabase.table("student_enrollments").select("id").eq("course_id", cid).execute()
-                course["students_count"] = len(enrolls_res.data) if enrolls_res.data else 0
-                
-                # avg mastery
-                prog_res = supabase.table("student_node_progress").select("mastery_score").eq("course_id", cid).execute()
-                if prog_res.data:
-                    scores = [p.get("mastery_score") for p in prog_res.data if p.get("mastery_score") is not None]
-                    if scores:
-                        course["avg_mastery"] = round(sum(scores) / len(scores))
+                if educator_id:
+                    # nodes count
+                    skills_res = supabase.table("skills").select("id").eq("course_id", cid).execute()
+                    course["nodes_count"] = len(skills_res.data) if skills_res.data else 0
+                    
+                    # students count
+                    enrolls_res = supabase.table("student_enrollments").select("id").eq("course_id", cid).execute()
+                    course["students_count"] = len(enrolls_res.data) if enrolls_res.data else 0
+                    
+                    # avg mastery
+                    prog_res = supabase.table("student_node_progress").select("mastery_score").eq("course_id", cid).execute()
+                    if prog_res.data:
+                        scores = [p.get("mastery_score") for p in prog_res.data if p.get("mastery_score") is not None]
+                        if scores:
+                            course["avg_mastery"] = round(sum(scores) / len(scores))
+                        else:
+                            course["avg_mastery"] = 0
                     else:
                         course["avg_mastery"] = 0
-                else:
-                    course["avg_mastery"] = 0
-                    
+                        
         return courses
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

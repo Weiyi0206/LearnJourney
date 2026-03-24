@@ -35,6 +35,11 @@ export default function Quizzes() {
                 setIsLoading(false);
                 return;
             }
+            if (state?.status === "Mastered") {
+                setError(`You have already mastered "${skillName}". There's no need to take this quiz again!`);
+                setIsLoading(false);
+                return;
+            }
             try {
                 const res = await QuizService.generateQuiz(courseTitle, skillName);
                 if (res && res.question) {
