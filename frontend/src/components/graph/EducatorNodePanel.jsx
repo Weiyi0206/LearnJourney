@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Activity, Book, FileText, Video, ArrowUpCircle, Link as LinkIcon, AlertTriangle, Send } from "lucide-react";
 
-export default function EducatorNodePanel({ node, fullCourseData }) {
+export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner = true }) {
     if (!node) return null;
 
     const nodeMetadata = fullCourseData.nodesData?.[node.id] || {};
@@ -46,40 +46,42 @@ export default function EducatorNodePanel({ node, fullCourseData }) {
 
             <div className="flex-grow p-6">
                 <Tabs defaultValue="materials" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsList className={`grid w-full ${isCourseOwner ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
                         <TabsTrigger value="materials" className="font-bold">Materials</TabsTrigger>
-                        <TabsTrigger value="analytics" className="font-bold">Analytics</TabsTrigger>
+                        {isCourseOwner && <TabsTrigger value="analytics" className="font-bold">Analytics</TabsTrigger>}
                     </TabsList>
 
                     <TabsContent value="materials" className="space-y-6">
-                        <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-900/30">
-                            <h4 className="font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-widest text-zinc-500"><Book size={16} /> Upload New Material</h4>
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs font-bold">Type</Label>
-                                        <Select defaultValue="text">
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="text">Markdown Text</SelectItem>
-                                                <SelectItem value="video">Video Embed</SelectItem>
-                                                <SelectItem value="file">File Upload</SelectItem>
-                                                <SelectItem value="link">Website Link</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                        {isCourseOwner && (
+                            <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-900/30 mb-6">
+                                <h4 className="font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-widest text-zinc-500"><Book size={16} /> Upload New Material</h4>
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-bold">Type</Label>
+                                            <Select defaultValue="text">
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="text">Markdown Text</SelectItem>
+                                                    <SelectItem value="video">Video Embed</SelectItem>
+                                                    <SelectItem value="file">File Upload</SelectItem>
+                                                    <SelectItem value="link">Website Link</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-bold">Material Title</Label>
+                                            <Input placeholder="E.g. Dynamic Typing Intro" />
+                                        </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-xs font-bold">Material Title</Label>
-                                        <Input placeholder="E.g. Dynamic Typing Intro" />
+                                        <Label className="text-xs font-bold">Content / Link Address</Label>
+                                        <Textarea placeholder="Paste content or direct URL..." className="min-h-[80px]" />
                                     </div>
+                                    <Button className="w-full font-bold"><Send size={16} className="mr-2" /> Publish Resource</Button>
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs font-bold">Content / Link Address</Label>
-                                    <Textarea placeholder="Paste content or direct URL..." className="min-h-[80px]" />
-                                </div>
-                                <Button className="w-full font-bold"><Send size={16} className="mr-2" /> Publish Resource</Button>
                             </div>
-                        </div>
+                        )}
 
                         <div>
                             <h4 className="font-bold mb-3 text-sm uppercase tracking-widest text-zinc-500">Current Attachments</h4>
@@ -106,46 +108,48 @@ export default function EducatorNodePanel({ node, fullCourseData }) {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="analytics" className="space-y-6">
-                        <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3 text-red-700 dark:text-red-400">
-                                <AlertTriangle size={24} />
-                                <div>
-                                    <h4 className="font-bold">Failure Rate</h4>
-                                    <p className="text-xs font-medium opacity-80">Students struggling with this node</p>
+                    {isCourseOwner && (
+                        <TabsContent value="analytics" className="space-y-6">
+                            <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl p-4 flex items-center justify-between">
+                                <div className="flex items-center gap-3 text-red-700 dark:text-red-400">
+                                    <AlertTriangle size={24} />
+                                    <div>
+                                        <h4 className="font-bold">Failure Rate</h4>
+                                        <p className="text-xs font-medium opacity-80">Students struggling with this node</p>
+                                    </div>
+                                </div>
+                                <span className="text-3xl font-black text-red-600 tracking-tight">{analytics.failRate}</span>
+                            </div>
+
+                            <div>
+                                <h4 className="font-bold mb-3 text-sm uppercase tracking-widest text-zinc-500">Recent Attempt Logs</h4>
+                                <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-950">
+                                    <Table>
+                                        <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/30">
+                                            <TableRow>
+                                                <TableHead className="font-bold">Student</TableHead>
+                                                <TableHead className="font-bold">Score</TableHead>
+                                                <TableHead className="font-bold text-right">Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {analytics.studentAttempts.map((attempt, i) => (
+                                                <TableRow key={i}>
+                                                    <TableCell className="py-3 text-sm font-medium">{attempt.name}</TableCell>
+                                                    <TableCell className="text-sm font-bold">{attempt.score}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Badge variant={attempt.status === 'Passed' ? 'default' : 'destructive'} className={attempt.status === 'Passed' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 text-xs' : 'text-xs'}>
+                                                            {attempt.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 </div>
                             </div>
-                            <span className="text-3xl font-black text-red-600 tracking-tight">{analytics.failRate}</span>
-                        </div>
-
-                        <div>
-                            <h4 className="font-bold mb-3 text-sm uppercase tracking-widest text-zinc-500">Recent Attempt Logs</h4>
-                            <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-950">
-                                <Table>
-                                    <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/30">
-                                        <TableRow>
-                                            <TableHead className="font-bold">Student</TableHead>
-                                            <TableHead className="font-bold">Score</TableHead>
-                                            <TableHead className="font-bold text-right">Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {analytics.studentAttempts.map((attempt, i) => (
-                                            <TableRow key={i}>
-                                                <TableCell className="py-3 text-sm font-medium">{attempt.name}</TableCell>
-                                                <TableCell className="text-sm font-bold">{attempt.score}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Badge variant={attempt.status === 'Passed' ? 'default' : 'destructive'} className={attempt.status === 'Passed' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 text-xs' : 'text-xs'}>
-                                                        {attempt.status}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </div>
-                    </TabsContent>
+                        </TabsContent>
+                    )}
                 </Tabs>
             </div>
         </SheetContent>

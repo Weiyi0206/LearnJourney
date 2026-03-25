@@ -16,8 +16,7 @@ export function TopNav() {
 
     const studentItems = [
         { title: "Dashboard", url: "/student/dashboard", icon: Home },
-        { title: "Learning Path", url: "/courses/course_001", icon: GitGraph },
-        { title: "Quizzes", url: "/student/quizzes", icon: CheckSquare },
+        { title: "Course Hub", url: "/student/hub", icon: BookOpen },
     ];
 
     const role = profile?.role || user?.user_metadata?.role;

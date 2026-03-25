@@ -18,6 +18,7 @@ import CourseCreator from "@/pages/educator/CourseCreator";
 
 // Specific Student Pages
 import StudentDashboard from "@/pages/student/Dashboard";
+import CourseHub from "@/pages/student/CourseHub";
 import Quizzes from "@/pages/student/Quizzes";
 import Diagnostic from "@/pages/student/Diagnostic";
 
@@ -93,6 +94,7 @@ export default function App() {
                 <MainLayout>
                   <Routes>
                     <Route path="dashboard" element={<StudentDashboard />} />
+                    <Route path="hub" element={<CourseHub />} />
                     <Route path="diagnostic/:courseId" element={<Diagnostic />} />
                     <Route path="quizzes" element={<Quizzes />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />

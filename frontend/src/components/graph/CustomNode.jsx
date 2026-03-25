@@ -36,7 +36,7 @@ export default function CustomNode({ data }) {
 
         // Locked
         return (
-            <div className="bg-zinc-200 dark:bg-zinc-800/80 text-zinc-400 dark:text-zinc-500 font-bold rounded-2xl px-6 py-4 border-2 border-dashed border-zinc-300 dark:border-zinc-700 min-w-[160px] flex items-center justify-between gap-4 opacity-80 cursor-not-allowed">
+            <div className="bg-zinc-200 dark:bg-zinc-800/80 text-zinc-400 dark:text-zinc-500 font-bold rounded-2xl px-6 py-4 border-2 border-dashed border-zinc-300 dark:border-zinc-700 min-w-[160px] flex items-center justify-between gap-4 opacity-80 cursor-pointer hover:opacity-100 hover:bg-zinc-300 dark:hover:bg-zinc-800 transition-all">
                 <Handle type="target" position={Position.Top} className="opacity-0" />
                 <span className="text-base tracking-tight">{label}</span>
                 <Lock size={16} className="shrink-0" />

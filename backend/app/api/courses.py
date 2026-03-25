@@ -18,6 +18,7 @@ class DeployRequest(BaseModel):
     description: str
     nodes: List[Dict[str, Any]]
     edges: List[Dict[str, Any]]
+    is_public: bool = True
 
 @router.get("/api/courses", response_model=List[Any])
 def get_courses(educator_id: str = None, supabase: Client = Depends(get_supabase_client)):
@@ -31,7 +32,7 @@ def get_courses(educator_id: str = None, supabase: Client = Depends(get_supabase
         if educator_id:
             query = query.eq("educator_id", educator_id)
         else:
-            query = query.eq("is_published", True)
+            query = query.eq("is_published", True).eq("is_public", True)
             
         response = query.execute()
         courses = response.data
@@ -142,6 +143,7 @@ def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabas
             "title": request.title,
             "description": request.description,
             "is_published": True,
+            "is_public": request.is_public,
             "educator_id": request.educator_id
         }
         course_res = supabase.table("courses").insert(new_course).execute()

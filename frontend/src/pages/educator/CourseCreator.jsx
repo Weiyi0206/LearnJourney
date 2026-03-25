@@ -162,7 +162,8 @@ export default function CourseCreator() {
                 title: courseInfo.title,
                 description: courseInfo.description,
                 nodes: nodes,
-                edges: edges
+                edges: edges,
+                is_public: courseInfo.visibility === 'public'
             };
 
             await CourseAPI.deployCourse(payload);
