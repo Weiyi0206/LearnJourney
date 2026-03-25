@@ -74,6 +74,18 @@ export const CourseAPI = {
             throw error;
         }
     },
+    parseSkills: async (rawText, formatHint = 'csv') => {
+        try {
+            const response = await client.post('/api/courses/parse-skills', {
+                raw_text: rawText,
+                format_hint: formatHint
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error in CourseAPI.parseSkills:', error);
+            throw error;
+        }
+    },
     deployCourse: async (payload) => {
         try {
             const response = await client.post('/api/courses/deploy', payload);

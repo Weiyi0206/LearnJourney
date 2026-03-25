@@ -1,7 +1,9 @@
+import os
+import json
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict, Any
 from uuid import UUID
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.models.schemas import Course, CourseCreate, CourseGraphResponse
 from app.core.database import get_supabase_client
 from supabase import Client
@@ -11,6 +13,74 @@ router = APIRouter()
 
 class GenerateRequest(BaseModel):
     skills: List[str]
+
+# ── Skill Parsing via Gemini ──
+
+class ParseSkillsRequest(BaseModel):
+    raw_text: str
+    format_hint: str = "csv"  # "csv" or "raw"
+
+class ParsedSkillsList(BaseModel):
+    skills: List[str] = Field(description="A flat list of distinct skill or concept names extracted from the input text. Each entry should be a concise, titlecase skill name.")
+
+@router.post("/api/courses/parse-skills")
+def parse_skills(request: ParseSkillsRequest):
+    """Use Gemini to parse unstructured or CSV text into a clean list of skill names."""
+    raw = request.raw_text.strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="raw_text must not be empty")
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        # Fallback: simple split on commas and newlines
+        skills = [s.strip().strip("-•*").strip() for s in raw.replace("\n", ",").split(",") if s.strip()]
+        return {"skills": skills}
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""You are a curriculum expert. The user has provided a list of skills / concepts in {"CSV" if request.format_hint == "csv" else "unstructured raw text"} format.
+
+INPUT:
+\"\"\"
+{raw}
+\"\"\"
+
+TASK:
+1. Identify every distinct skill or concept mentioned.
+2. Clean up each skill name: remove numbering, bullets, trailing punctuation.
+3. Use Title Case for each skill name.
+4. Normalize the concepts into standard, short, 1-to-3 word textbook keywords. 
+5. Do not use descriptive phrases.
+Examples:
+BAD: 'Defining And Calling Functions'
+GOOD: 'Functions'
+BAD: 'Basic Arithmetic And Logical Operators'
+GOOD: 'Operators'
+6. Remove exact duplicates.
+7. Return them as a JSON array of strings under the key "skills"."""
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash-lite',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                response_mime_type='application/json',
+                response_schema=ParsedSkillsList,
+            )
+        )
+
+        data = json.loads(response.text)
+        return data
+
+    except Exception as e:
+        print(f"Gemini parse-skills error: {e}")
+        # Fallback to simple split
+        skills = [s.strip().strip("-•*").strip() for s in raw.replace("\n", ",").split(",") if s.strip()]
+        return {"skills": skills}
 
 class DeployRequest(BaseModel):
     educator_id: str

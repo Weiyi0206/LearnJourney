@@ -44,6 +44,38 @@ class ComplexityCalculator:
     def _clean_term(self, term: str) -> str:
         return term.lower().translate(str.maketrans('', '', string.punctuation)).strip()
 
+    def _extract_core_keywords(self, term: str) -> str:
+        stop_words = {'and', 'basic', 'the', 'in', 'setting', 'up', 'defining', 'calling'}
+        clean_term = self._clean_term(term)
+        tokens = clean_term.split()
+        remaining = [w for w in tokens if w not in stop_words]
+        
+        if not remaining:
+            return clean_term
+
+        if len(remaining) == 1:
+            return remaining[0]
+
+        best_word = remaining[0]
+        best_freq = -1
+        
+        for word in remaining:
+            pattern = r'\b' + re.escape(word) + r'\b'
+            freq = 0
+            for p in self.paragraphs:
+                try:
+                    if re.search(pattern, p):
+                        freq += 1
+                except re.error:
+                    if word in p:
+                        freq += 1
+                        
+            if freq > best_freq:
+                best_freq = freq
+                best_word = word
+                
+        return best_word
+
     def get_paragraph_indices(self, term: str) -> List[int]:
         """
         Returns a list of integer indices representing which paragraphs contain the term.
@@ -51,7 +83,7 @@ class ComplexityCalculator:
         if not self.paragraphs:
             return []
             
-        clean_term = self._clean_term(term)
+        clean_term = self._extract_core_keywords(term)
         if not clean_term:
             return []
             
