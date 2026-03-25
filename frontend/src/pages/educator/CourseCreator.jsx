@@ -4,7 +4,7 @@ import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Settings2, ShieldCheck, FileKey, Globe, Lock, Link as LinkIcon } from "lucide-react";
+import { ArrowLeft, Settings2, ShieldCheck, FileKey, Globe, Lock, Link as LinkIcon, BrainCircuit, Target } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,8 @@ export default function CourseCreator() {
         description: '',
         visibility: 'public', // 'public' | 'private'
         published: false,
+        questions_count: 20,
+        pass_threshold: 70,
     });
 
     // Overlays
@@ -275,8 +277,71 @@ export default function CourseCreator() {
                         </div>
                     </div>
 
+                    {/* Quiz Configuration Section */}
+                    <div className="space-y-6 border-t border-zinc-200 dark:border-zinc-800 pt-6">
+                        <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest">
+                            <BrainCircuit size={14} /> Quiz Configuration (All Nodes)
+                        </div>
+
+                        {/* Number of Questions */}
+                        <div className="space-y-3">
+                            <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><BrainCircuit size={12} /> Number of Questions</span>
+                                <span className="text-lg font-black text-blue-600">{courseInfo.questions_count}</span>
+                            </Label>
+                            <input
+                                type="range"
+                                min={5}
+                                max={50}
+                                step={5}
+                                value={courseInfo.questions_count}
+                                onChange={(e) => setCourseInfo({ ...courseInfo, questions_count: parseInt(e.target.value) })}
+                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-600 bg-zinc-200 dark:bg-zinc-800"
+                            />
+                            <div className="flex justify-between text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                <span>5 min</span>
+                                <span>50 max</span>
+                            </div>
+                        </div>
+
+                        {/* Pass Threshold */}
+                        <div className="space-y-3">
+                            <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><Target size={12} /> Pass Threshold</span>
+                                <span className="text-lg font-black text-emerald-600">{courseInfo.pass_threshold}%</span>
+                            </Label>
+                            <input
+                                type="range"
+                                min={30}
+                                max={100}
+                                step={5}
+                                value={courseInfo.pass_threshold}
+                                onChange={(e) => setCourseInfo({ ...courseInfo, pass_threshold: parseInt(e.target.value) })}
+                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-emerald-600 bg-zinc-200 dark:bg-zinc-800"
+                            />
+                            <div className="flex justify-between text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                <span>30% min</span>
+                                <span>100% max</span>
+                            </div>
+                            <p className="text-[11px] text-zinc-400 font-medium leading-relaxed">
+                                Students must score at or above this percentage to master each node.
+                            </p>
+                        </div>
+                    </div>
+
                     <DialogFooter>
-                        <Button size="lg" className="w-full font-bold h-14 bg-zinc-900 border-none hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-xl" onClick={() => setIsSettingsOpen(false)}>
+                        <Button size="lg" className="w-full font-bold h-14 bg-zinc-900 border-none hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-xl" onClick={() => {
+                            // Apply quiz settings to all nodes
+                            setNodes(nds => nds.map(n => ({
+                                ...n,
+                                data: {
+                                    ...n.data,
+                                    questions_count: courseInfo.questions_count,
+                                    pass_threshold: courseInfo.pass_threshold
+                                }
+                            })));
+                            setIsSettingsOpen(false);
+                        }}>
                             <ShieldCheck size={18} className="mr-2" /> Save Settings
                         </Button>
                     </DialogFooter>

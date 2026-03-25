@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict, Any, Optional
 from uuid import UUID
+from datetime import datetime, timezone
 from pydantic import BaseModel
 from app.core.database import get_supabase_client
 from supabase import Client
@@ -148,6 +149,14 @@ def get_enrolled_courses(student_id: UUID, supabase: Client = Depends(get_supaba
 @router.get("/api/student/{student_id}/course/{course_id}/progress")
 def get_student_progress(student_id: UUID, course_id: UUID, supabase: Client = Depends(get_supabase_client)):
     try:
+        # Touch last_active_at so the educator roster shows real activity
+        try:
+            supabase.table("student_enrollments").update({
+                "last_active_at": datetime.now(timezone.utc).isoformat()
+            }).eq("student_id", str(student_id)).eq("course_id", str(course_id)).execute()
+        except Exception:
+            pass  # non-critical
+
         prog = supabase.table("student_node_progress").select("*").eq("student_id", str(student_id)).eq("course_id", str(course_id)).execute()
         return prog.data
     except Exception as e:
@@ -161,6 +170,14 @@ def update_progress(req: ProgressUpdateRequest, supabase: Client = Depends(get_s
             "status": req.status,
             "mastery_score": req.mastery_score
         }).eq("student_id", str(req.student_id)).eq("skill_id", str(req.skill_id)).execute()
+
+        # 1b. Touch last_active_at
+        try:
+            supabase.table("student_enrollments").update({
+                "last_active_at": datetime.now(timezone.utc).isoformat()
+            }).eq("student_id", str(req.student_id)).eq("course_id", str(req.course_id)).execute()
+        except Exception:
+            pass  # non-critical
         
         # 2. If it is mastered, evaluate unlocking
         if req.status == "Mastered":
@@ -192,8 +209,8 @@ def update_progress(req: ProgressUpdateRequest, supabase: Client = Depends(get_s
 def get_course_roster(course_id: str, supabase: Client = Depends(get_supabase_client)):
     """Get all enrolled students for a course with their progress (educator view)"""
     try:
-        # Get enrollments
-        enrollments = supabase.table("student_enrollments").select("student_id, created_at").eq("course_id", course_id).execute()
+        # Get enrollments (including last_active_at timestamp)
+        enrollments = supabase.table("student_enrollments").select("student_id, last_active_at").eq("course_id", course_id).execute()
         if not enrollments.data:
             return []
 
@@ -204,12 +221,11 @@ def get_course_roster(course_id: str, supabase: Client = Depends(get_supabase_cl
         roster = []
         for enrollment in enrollments.data:
             sid = enrollment["student_id"]
-            enrolled_at = enrollment.get("created_at", "")
 
             # Default values
             name = "Unknown"
             mastered = 0
-            last_active = enrolled_at
+            last_active = enrollment.get("last_active_at") or ""
 
             # Get student name
             try:
@@ -226,14 +242,6 @@ def get_course_roster(course_id: str, supabase: Client = Depends(get_supabase_cl
                     mastered = sum(1 for p in prog_res.data if p.get("status") == "Mastered")
             except Exception:
                 pass
-
-            # Get last quiz attempt date (skip if table is empty or RLS blocks)
-            try:
-                last_quiz = supabase.table("quiz_attempts").select("created_at").eq("student_id", sid).eq("course_id", course_id).order("created_at", desc=True).limit(1).execute()
-                if last_quiz.data:
-                    last_active = last_quiz.data[0]["created_at"]
-            except Exception:
-                pass  # quiz_attempts may be empty or RLS may restrict
 
             roster.append({
                 "id": sid,

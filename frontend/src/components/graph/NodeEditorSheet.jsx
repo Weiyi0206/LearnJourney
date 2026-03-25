@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Save, Trash2, Edit3, Type, BrainCircuit, Target, Loader2 } from "lucide-react";
-import { CourseService } from "@/lib/apiClient";
+import { CourseAPI } from "@/lib/apiClient";
 
 export default function NodeEditorSheet({ node, onUpdateNode, onDeleteNode }) {
     const [label, setLabel] = useState("");
@@ -37,7 +37,7 @@ export default function NodeEditorSheet({ node, onUpdateNode, onDeleteNode }) {
         if (isDeployed) {
             setIsSaving(true);
             try {
-                await CourseService.updateSkillSettings(node.id, {
+                await CourseAPI.updateSkillSettings(node.id, {
                     name: label,
                     questions_count: questionsCount,
                     pass_threshold: passThreshold

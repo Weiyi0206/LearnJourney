@@ -1,19 +1,22 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { CourseService, StudentService } from "@/lib/apiClient";
+import { CourseService, StudentService, CourseAPI } from "@/lib/apiClient";
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 
 // Shadcn UI
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 // Icons
-import { ArrowLeft, Users, Activity, CheckCircle2, Pencil, Eye } from "lucide-react";
+import { ArrowLeft, Users, Activity, CheckCircle2, Pencil, Eye, Settings2, BrainCircuit, Target, ShieldCheck, Loader2 } from "lucide-react";
 
 // Local Sub-components
 import CourseGraph from "@/components/graph/CourseGraph";
@@ -49,6 +52,9 @@ export default function CourseView() {
 
     // Settings dialog (for edit mode)
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [courseQuestionsCount, setCourseQuestionsCount] = useState(20);
+    const [coursePassThreshold, setCoursePassThreshold] = useState(70);
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
 
     // Simple layout algorithm
     const layoutGraph = useCallback((nodes, edges) => {
@@ -333,7 +339,7 @@ export default function CourseView() {
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
                         onNodeClick={onEditNodeClick}
-                        onOpenSettings={() => setIsSettingsOpen(false)}
+                        onOpenSettings={() => setIsSettingsOpen(true)}
                         onAddNode={addNode}
                         onDeploy={handleSaveEdits}
                     />
@@ -347,6 +353,99 @@ export default function CourseView() {
                         onDeleteNode={deleteNode}
                     />
                 </Sheet>
+
+                {/* Course Settings Dialog (Edit Mode) */}
+                <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                    <DialogContent className="sm:max-w-xl md:max-w-2xl overflow-hidden rounded-[2rem] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 p-8">
+                        <DialogHeader>
+                            <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest mb-2"><Settings2 size={14} /> Course Quiz Settings</div>
+                            <DialogTitle className="text-3xl font-extrabold tracking-tight">Quiz Configuration</DialogTitle>
+                            <DialogDescription className="text-base font-medium">Set default quiz parameters for all nodes in this course. You can also override per-node by clicking on individual nodes.</DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-8 pt-6 pb-4">
+                            {/* Number of Questions */}
+                            <div className="space-y-3">
+                                <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center justify-between">
+                                    <span className="flex items-center gap-2"><BrainCircuit size={14} /> Number of Questions</span>
+                                    <span className="text-lg font-black text-blue-600">{courseQuestionsCount}</span>
+                                </Label>
+                                <input
+                                    type="range"
+                                    min={5}
+                                    max={50}
+                                    step={5}
+                                    value={courseQuestionsCount}
+                                    onChange={(e) => setCourseQuestionsCount(parseInt(e.target.value))}
+                                    className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-600 bg-zinc-200 dark:bg-zinc-800"
+                                />
+                                <div className="flex justify-between text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                    <span>5 min</span>
+                                    <span>50 max</span>
+                                </div>
+                            </div>
+
+                            {/* Pass Threshold */}
+                            <div className="space-y-3">
+                                <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center justify-between">
+                                    <span className="flex items-center gap-2"><Target size={14} /> Pass Threshold</span>
+                                    <span className="text-lg font-black text-emerald-600">{coursePassThreshold}%</span>
+                                </Label>
+                                <input
+                                    type="range"
+                                    min={30}
+                                    max={100}
+                                    step={5}
+                                    value={coursePassThreshold}
+                                    onChange={(e) => setCoursePassThreshold(parseInt(e.target.value))}
+                                    className="w-full h-2 rounded-full appearance-none cursor-pointer accent-emerald-600 bg-zinc-200 dark:bg-zinc-800"
+                                />
+                                <div className="flex justify-between text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                    <span>30% min</span>
+                                    <span>100% max</span>
+                                </div>
+                                <p className="text-[11px] text-zinc-400 font-medium leading-relaxed">
+                                    Students must score at or above this percentage to master each node and unlock downstream prerequisites.
+                                </p>
+                            </div>
+                        </div>
+
+                        <DialogFooter>
+                            <Button
+                                size="lg"
+                                className="w-full font-bold h-14 bg-zinc-900 border-none hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-xl"
+                                disabled={isSavingSettings}
+                                onClick={async () => {
+                                    setIsSavingSettings(true);
+                                    try {
+                                        // Update all nodes in frontend state
+                                        setEditableNodes(nds => nds.map(n => ({
+                                            ...n,
+                                            data: {
+                                                ...n.data,
+                                                questions_count: courseQuestionsCount,
+                                                pass_threshold: coursePassThreshold
+                                            }
+                                        })));
+                                        // Also persist to DB
+                                        await CourseAPI.updateCourseSettings(courseId, {
+                                            questions_count: courseQuestionsCount,
+                                            pass_threshold: coursePassThreshold
+                                        });
+                                        setIsSettingsOpen(false);
+                                    } catch (err) {
+                                        console.error("Failed to save course settings:", err);
+                                        alert("Failed to save settings: " + (err.response?.data?.detail || err.message));
+                                    } finally {
+                                        setIsSavingSettings(false);
+                                    }
+                                }}
+                            >
+                                {isSavingSettings ? <><Loader2 size={18} className="mr-2 animate-spin" /> Saving...</> : <><ShieldCheck size={18} className="mr-2" /> Apply to All Nodes</>}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         );
     }
