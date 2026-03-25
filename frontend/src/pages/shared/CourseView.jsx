@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 // Icons
-import { ArrowLeft, Users, Activity, CheckCircle2, Pencil, Eye, Settings2, BrainCircuit, Target, ShieldCheck, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, Activity, CheckCircle2, Pencil, Eye, Settings2, BrainCircuit, Target, ShieldCheck, Loader2, Trash2 } from "lucide-react";
 
 // Local Sub-components
 import CourseGraph from "@/components/graph/CourseGraph";
@@ -55,6 +55,9 @@ export default function CourseView() {
     const [courseQuestionsCount, setCourseQuestionsCount] = useState(20);
     const [coursePassThreshold, setCoursePassThreshold] = useState(70);
     const [isSavingSettings, setIsSavingSettings] = useState(false);
+    const [isUnenrollDialogOpen, setIsUnenrollDialogOpen] = useState(false);
+    const [isUnenrolling, setIsUnenrolling] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     // Simple layout algorithm
     const layoutGraph = useCallback((nodes, edges) => {
@@ -283,6 +286,21 @@ export default function CourseView() {
         setIsEditMode(false);
     }, []);
 
+    const handleUnenroll = async () => {
+        if (!user?.id) return;
+        setIsUnenrolling(true);
+        try {
+            await StudentService.unenroll(user.id, courseId);
+            navigate(`/${userRole}/dashboard`);
+        } catch (err) {
+            console.error("Failed to unenroll:", err);
+            alert("Failed to unenroll: " + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsUnenrolling(false);
+            setIsUnenrollDialogOpen(false);
+        }
+    };
+
     // Event Handler (view mode)
     const onNodeClick = (event, node) => {
         if (!isEducator && node.data?.studentStatus === 'Locked') {
@@ -446,6 +464,8 @@ export default function CourseView() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+
             </div>
         );
     }
@@ -525,16 +545,46 @@ export default function CourseView() {
                             </Dialog>
                         </>
                     ) : (
-                        <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900/60 pl-3 pr-6 py-1.5 rounded-full border border-zinc-200/50 dark:border-zinc-800 shadow-inner">
-                            <div className="w-10 h-10 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center text-emerald-500 shadow-sm border border-zinc-100 dark:border-zinc-700">
-                                <CheckCircle2 size={20} />
-                            </div>
-                            <div className="flex flex-col min-w-[120px]">
-                                <div className="flex justify-between items-center w-full pb-1">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Mastery</span>
-                                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">{studentStats.mastered} / {studentStats.total} Nodes</span>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900/60 pl-3 pr-6 py-1.5 rounded-full border border-zinc-200/50 dark:border-zinc-800 shadow-inner">
+                                <div className="w-10 h-10 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center text-emerald-500 shadow-sm border border-zinc-100 dark:border-zinc-700">
+                                    <CheckCircle2 size={20} />
                                 </div>
-                                <Progress value={studentStats.percent} className="h-2 bg-zinc-200 dark:bg-zinc-700 [&>div]:bg-emerald-500" />
+                                <div className="flex flex-col min-w-[120px]">
+                                    <div className="flex justify-between items-center w-full pb-1">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Mastery</span>
+                                        <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">{studentStats.mastered} / {studentStats.total} Nodes</span>
+                                    </div>
+                                    <Progress value={studentStats.percent} className="h-2 bg-zinc-200 dark:bg-zinc-700 [&>div]:bg-emerald-500" />
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="rounded-xl border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900/50"
+                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                >
+                                    <Settings2 size={18} />
+                                </Button>
+
+                                {isMenuOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
+                                        <div className="absolute right-0 top-[calc(100%+8px)] w-56 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 p-2 flex flex-col gap-1 transform origin-top-right animate-in fade-in zoom-in duration-150">
+                                            <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Course Actions</div>
+                                            <button
+                                                className="w-full text-left px-3 py-2.5 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center transition-colors"
+                                                onClick={() => {
+                                                    setIsMenuOpen(false);
+                                                    setIsUnenrollDialogOpen(true);
+                                                }}
+                                            >
+                                                <Trash2 size={16} className="mr-2" /> Unenroll from Course
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
@@ -559,6 +609,39 @@ export default function CourseView() {
                     <StudentNodePanel node={selectedNode} fullCourseData={course} />
                 )}
             </Sheet>
+
+            {/* Unenroll Confirmation Dialog */}
+            <Dialog open={isUnenrollDialogOpen} onOpenChange={setIsUnenrollDialogOpen}>
+                <DialogContent className="sm:max-w-md rounded-[2rem] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 p-8">
+                    <DialogHeader>
+                        <div className="flex items-center gap-2 text-red-600 font-bold text-xs uppercase tracking-widest mb-2"><Trash2 size={14} /> Critical Action</div>
+                        <DialogTitle className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">Abandon Learning Journey?</DialogTitle>
+                        <DialogDescription className="text-base font-medium text-zinc-500">
+                            You are about to unenroll from <span className="text-zinc-900 dark:text-zinc-200 font-bold">"{course?.title}"</span>.
+                            This will permanently delete your mastery progress, quiz history, and enrollment status.
+                            <span className="block mt-2 text-red-500 font-bold italic">This action cannot be undone.</span>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter className="flex flex-col sm:flex-row gap-3 mt-6">
+                        <Button
+                            variant="ghost"
+                            className="flex-1 font-bold rounded-xl h-12 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            onClick={() => setIsUnenrollDialogOpen(false)}
+                            disabled={isUnenrolling}
+                        >
+                            Stay Enrolled
+                        </Button>
+                        <Button
+                            className="flex-1 font-bold h-12 bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/20 rounded-xl"
+                            onClick={handleUnenroll}
+                            disabled={isUnenrolling}
+                        >
+                            {isUnenrolling ? <><Loader2 size={18} className="mr-2 animate-spin" /> Leaving...</> : "Yes, Unenroll"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
         </div>
     );

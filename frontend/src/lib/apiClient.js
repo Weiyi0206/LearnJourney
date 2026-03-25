@@ -113,6 +113,15 @@ export const StudentService = {
             throw error;
         }
     },
+    unenroll: async (studentId, courseId) => {
+        try {
+            const response = await client.delete(`/api/student/${studentId}/course/${courseId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error unenrolling student:', error);
+            throw error;
+        }
+    },
     getEnrolledCourses: async (studentId) => {
         try {
             const response = await client.get(`/api/student/${studentId}/courses`);

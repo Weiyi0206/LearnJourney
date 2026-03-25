@@ -63,6 +63,20 @@ def enroll_student(req: EnrollRequest, supabase: Client = Depends(get_supabase_c
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/api/student/{student_id}/course/{course_id}")
+def unenroll_student(student_id: UUID, course_id: UUID, supabase: Client = Depends(get_supabase_client)):
+    try:
+        # Delete progress
+        supabase.table("student_node_progress").delete().eq("student_id", str(student_id)).eq("course_id", str(course_id)).execute()
+        # Delete quiz attempts
+        supabase.table("quiz_attempts").delete().eq("student_id", str(student_id)).eq("course_id", str(course_id)).execute()
+        # Delete enrollment
+        supabase.table("student_enrollments").delete().eq("student_id", str(student_id)).eq("course_id", str(course_id)).execute()
+
+        return {"status": "success", "message": "Unenrolled successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/api/student/{student_id}/courses")
 def get_enrolled_courses(student_id: UUID, supabase: Client = Depends(get_supabase_client)):
     try:
