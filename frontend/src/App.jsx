@@ -18,12 +18,12 @@ import CourseCreator from "@/pages/educator/CourseCreator";
 
 // Specific Student Pages
 import StudentDashboard from "@/pages/student/Dashboard";
-import CourseHub from "@/pages/student/CourseHub";
 import Quizzes from "@/pages/student/Quizzes";
 import Diagnostic from "@/pages/student/Diagnostic";
 
 // Shared Course Pages
 import CourseView from "@/pages/shared/CourseView";
+import CourseHub from "@/pages/shared/CourseHub";
 
 const MainLayout = ({ children }) => {
   return (
@@ -94,11 +94,19 @@ export default function App() {
                 <MainLayout>
                   <Routes>
                     <Route path="dashboard" element={<StudentDashboard />} />
-                    <Route path="hub" element={<CourseHub />} />
+                    <Route path="hub" element={<Navigate to="/hub" replace />} />
                     <Route path="diagnostic/:courseId" element={<Diagnostic />} />
                     <Route path="quizzes" element={<Quizzes />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/hub" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <CourseHub />
                 </MainLayout>
               </ProtectedRoute>
             } />

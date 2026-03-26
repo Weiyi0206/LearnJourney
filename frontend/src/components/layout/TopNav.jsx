@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Home, BookOpen, GitGraph, CheckSquare, LogOut, Hexagon } from "lucide-react";
+import { Home, BookOpen, GitGraph, CheckSquare, LogOut, Hexagon, Compass } from "lucide-react";
 
 export function TopNav() {
     const { user, profile, signOut } = useAuth();
@@ -11,12 +11,13 @@ export function TopNav() {
 
     const educatorItems = [
         { title: "Dashboard", url: "/educator/dashboard", icon: Home },
+        { title: "Course Hub", url: "/hub", icon: Compass },
         { title: "Course Creator", url: "/educator/builder", icon: GitGraph },
     ];
 
     const studentItems = [
         { title: "Dashboard", url: "/student/dashboard", icon: Home },
-        { title: "Course Hub", url: "/student/hub", icon: BookOpen },
+        { title: "Course Hub", url: "/hub", icon: BookOpen },
     ];
 
     const role = profile?.role || user?.user_metadata?.role;
@@ -25,7 +26,7 @@ export function TopNav() {
     // A clever check to see if an item is active (including deep links)
     const checkIsActive = (itemUrl) => {
         if (location.pathname === itemUrl) return true;
-        // Keep Dashboard active if we are deep into courses/nodes
+        if (itemUrl === '/hub' && location.pathname === '/hub') return true;
         if (itemUrl.includes('dashboard') && location.pathname.includes('/courses/')) return false;
         if (itemUrl.includes('/courses/') && location.pathname.includes('/courses/')) return true;
         return false;
