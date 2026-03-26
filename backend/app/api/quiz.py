@@ -2,8 +2,9 @@ import os
 import json
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
-from google import genai
-from google.genai import types
+import vertexai
+from vertexai.generative_models import GenerativeModel, GenerationConfig
+
 from typing import List, Optional
 from app.core.database import get_supabase_client
 from supabase import Client
@@ -51,26 +52,28 @@ def generate_quiz(req: QuizGenerateRequest, supabase: Client = Depends(get_supab
 
     mastered_prerequisites = req.mastered_prerequisites or []
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        print("Warning: GEMINI_API_KEY not found. Returning mock quiz.")
-        mock_questions = []
-        for i in range(min(num_questions, 3)):
-            mock_questions.append({
-                "question": f"Sample question {i+1} about {req.skill_name} in {req.course_title}?",
-                "options": [
-                    f"Option A for Q{i+1}",
-                    f"Correct answer for Q{i+1}",
-                    f"Option C for Q{i+1}",
-                    f"Option D for Q{i+1}"
-                ],
-                "correct_index": 1,
-                "explanation": f"This is a mock explanation for question {i+1} about {req.skill_name}."
-            })
-        return {"questions": mock_questions, "pass_threshold": pass_threshold}
+    # api_key = os.getenv("GEMINI_API_KEY")
+    # if not api_key:
+    #     print("Warning: GEMINI_API_KEY not found. Returning mock quiz.")
+    #     mock_questions = []
+    #     for i in range(min(num_questions, 3)):
+    #         mock_questions.append({
+    #             "question": f"Sample question {i+1} about {req.skill_name} in {req.course_title}?",
+    #             "options": [
+    #                 f"Option A for Q{i+1}",
+    #                 f"Correct answer for Q{i+1}",
+    #                 f"Option C for Q{i+1}",
+    #                 f"Option D for Q{i+1}"
+    #             ],
+    #             "correct_index": 1,
+    #             "explanation": f"This is a mock explanation for question {i+1} about {req.skill_name}."
+    #         })
+    #     return {"questions": mock_questions, "pass_threshold": pass_threshold}
 
+    #api_key = os.getenv("GEMINI_API_KEY") # keeping this if needed as fallback, but vertex uses application default credentials
     try:
-        client = genai.Client(api_key=api_key)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./gcp-service-account.json"
+        vertexai.init(project=os.getenv("GCP_PROJECT_ID"), location=os.getenv("GCP_LOCATION"))
 
         prereqs_text = ""
         if mastered_prerequisites:
@@ -92,15 +95,26 @@ def generate_quiz(req: QuizGenerateRequest, supabase: Client = Depends(get_supab
         3. PROGRESSIVE DIFFICULTY: Start with easier foundational questions and gradually move to highly advanced edge cases.
         4. PLAUSIBLE DISTRACTORS: The 3 incorrect options MUST be common student misconceptions. No obvious or joke answers.
         5. STRICT SCOPE: Do NOT test concepts that are more advanced than "{req.skill_name}".
+        
+        Return the result as a JSON object matching this schema:
+        {{
+            "questions": [
+                {{
+                    "question": "The multiple-choice question text.",
+                    "options": ["A", "B", "C", "D"],
+                    "correct_index": 0,
+                    "explanation": "A pedagogical explanation."
+                }}
+            ]
+        }}
         """
 
-        response = client.models.generate_content(
-            model='gemini-2.5-pro',
-            contents=prompt,
-            config=types.GenerateContentConfig(
+        model = GenerativeModel("gemini-2.5-pro") # use appropriate available vertex model
+        response = model.generate_content(
+            prompt,
+            generation_config=GenerationConfig(
                 temperature=0.7,
-                response_mime_type='application/json',
-                response_schema=QuizQuestionList,
+                response_mime_type='application/json'
             )
         )
 

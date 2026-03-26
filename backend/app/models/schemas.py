@@ -7,6 +7,7 @@ class CourseBase(BaseModel):
     title: str
     description: Optional[str] = None
     is_published: bool = False
+    is_public: bool = True
 
 class CourseCreate(CourseBase):
     educator_id: UUID

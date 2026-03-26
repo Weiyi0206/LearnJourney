@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { QuizService, StudentService } from '@/lib/apiClient';
@@ -22,12 +22,16 @@ export default function QuizView() {
     const [selectedAnswers, setSelectedAnswers] = useState({});
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
+    const hasFetched = useRef(false);
 
     useEffect(() => {
         if (!skillId || !courseId) {
             navigate('/student/dashboard');
             return;
         }
+
+        if (hasFetched.current) return;
+        hasFetched.current = true;
 
         const fetchQuiz = async () => {
             try {

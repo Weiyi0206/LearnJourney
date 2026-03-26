@@ -4,7 +4,7 @@ import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Settings2, ShieldCheck, FileKey, Globe, Lock, Link as LinkIcon, BrainCircuit, Target } from "lucide-react";
+import { ArrowLeft, Settings2, ShieldCheck, FileKey, Globe, Lock, Link as LinkIcon, BrainCircuit, Target, CheckCircle } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ export default function CourseCreator() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
     const [selectedNodeId, setSelectedNodeId] = useState(null);
+    const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
     // Graph Data State
     const [nodes, setNodes] = useState([]);
@@ -169,8 +170,7 @@ export default function CourseCreator() {
             await CourseAPI.deployCourse(payload);
             setCourseInfo(prev => ({ ...prev, published: true }));
 
-            alert("Course Deployed Successfully!");
-            navigate('/educator/dashboard');
+            setShowSuccessDialog(true);
         } catch (error) {
             console.error(error);
             alert("Deployment Failed: " + (error.response?.data?.detail || error.message));
@@ -344,6 +344,27 @@ export default function CourseCreator() {
                             setIsSettingsOpen(false);
                         }}>
                             <ShieldCheck size={18} className="mr-2" /> Save Settings
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Celebration Dialog */}
+            <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+                <DialogContent className="sm:max-w-md text-center p-10 border-emerald-500 border-2 bg-gradient-to-b from-emerald-50 to-white dark:from-emerald-950/40 dark:to-zinc-950 shadow-2xl overflow-hidden" showCloseButton={false}>
+                    <DialogHeader>
+                        <div className="mx-auto bg-emerald-100 text-emerald-600 rounded-[2rem] p-6 mb-6 ring-8 ring-emerald-50 dark:bg-emerald-900/50 dark:ring-emerald-900/20 inline-flex shadow-inner">
+                            <CheckCircle size={56} strokeWidth={2.5} />
+                        </div>
+                        <DialogTitle className="text-4xl font-black text-emerald-700 dark:text-emerald-400 mb-3 tracking-tight">Success!</DialogTitle>
+                        <DialogDescription className="text-xl text-emerald-600/80 font-bold leading-relaxed px-4">
+                            Course deployed successfully.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-6" />
+                    <DialogFooter className="sm:justify-center">
+                        <Button className="bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.02] text-white shadow-xl shadow-emerald-600/30 w-full text-xl py-8 rounded-2xl font-extrabold transition-all" onClick={() => navigate('/educator/dashboard')}>
+                            Return to Dashboard
                         </Button>
                     </DialogFooter>
                 </DialogContent>

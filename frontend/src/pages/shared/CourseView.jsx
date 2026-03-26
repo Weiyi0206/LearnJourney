@@ -12,9 +12,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Icons
-import { ArrowLeft, Users, Activity, CheckCircle2, Pencil, Settings2, BrainCircuit, Target, ShieldCheck, Loader2, Trash2, MoreVertical, Link as LinkIcon, AlertCircle } from "lucide-react";
+import { ArrowLeft, Users, Activity, CheckCircle2, Pencil, Settings2, BrainCircuit, Target, ShieldCheck, Loader2, Trash2, MoreVertical, Link as LinkIcon, AlertCircle, Globe, Lock, FileKey } from "lucide-react";
 
 // Local Sub-components
 import CourseGraph from "@/components/graph/CourseGraph";
@@ -50,12 +51,14 @@ export default function CourseView() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [courseQuestionsCount, setCourseQuestionsCount] = useState(20);
     const [coursePassThreshold, setCoursePassThreshold] = useState(70);
+    const [courseVisibility, setCourseVisibility] = useState('public');
     const [isSavingSettings, setIsSavingSettings] = useState(false);
 
     const [isUnenrollDialogOpen, setIsUnenrollDialogOpen] = useState(false);
     const [isUnenrolling, setIsUnenrolling] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [copiedLink, setCopiedLink] = useState(false);
+    const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
     const layoutGraph = useCallback((nodes, edges) => {
         const layers = {};
@@ -199,6 +202,7 @@ export default function CourseView() {
                 generalAnalytics: { enrolled: studentsList.length },
                 studentsList
             });
+            setCourseVisibility(data.is_public ? "public" : "private");
 
             setDisplayNodes(layedOutNodes);
             setEditableNodes(layedOutNodes.map(n => ({ ...n, type: 'editorNode' })));
@@ -294,9 +298,16 @@ export default function CourseView() {
                         <div className="flex items-center gap-3 mb-1">
                             <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">{course.title}</h1>
                             {isEducator && (
-                                <Badge variant="secondary" className="bg-zinc-100 dark:bg-zinc-800 font-bold tracking-widest text-[10px] uppercase">
-                                    {isCourseOwner ? 'Your Course' : 'External Course'}
-                                </Badge>
+                                <div className="flex gap-2 items-center">
+                                    <Badge variant="secondary" className="bg-zinc-100 dark:bg-zinc-800 font-bold tracking-widest text-[10px] uppercase">
+                                        {isCourseOwner ? 'Your Course' : 'External Course'}
+                                    </Badge>
+                                    {isCourseOwner && (
+                                        <Badge variant="secondary" className={`text-[10px] font-bold uppercase tracking-widest flex items-center ${course.is_public ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400'}`}>
+                                            {course.is_public ? <><Globe size={10} className="mr-1" /> Public</> : <><Lock size={10} className="mr-1" /> Private</>}
+                                        </Badge>
+                                    )}
+                                </div>
                             )}
                         </div>
                         <p className="text-sm text-zinc-500 font-medium line-clamp-1">{course.description}</p>
@@ -325,10 +336,11 @@ export default function CourseView() {
                                         <Users size={16} /> Cohort Stats
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-3xl overflow-hidden rounded-[2rem]">
+                                <DialogContent className="sm:max-w-3xl overflow-hidden rounded-[2rem]" aria-describedby="roster-description">
                                     {/* Cohort dialog same logic inside... omitted for brevity visually */}
                                     <DialogHeader className="p-4 pb-0">
                                         <DialogTitle className="text-2xl font-extrabold">Student Roster</DialogTitle>
+                                        <DialogDescription id="roster-description" className="sr-only">View enrolled student progress and analytics</DialogDescription>
                                     </DialogHeader>
                                     <div className="p-4 max-h-[60vh] overflow-y-auto">
                                         {course?.studentsList?.length > 0 ? (
@@ -433,12 +445,43 @@ export default function CourseView() {
                     </div>
                 )}
 
-                <CourseGraph
-                    nodes={displayNodes}
-                    edges={editableEdges}
-                    onNodeClick={onNodeClick}
-                    isEducator={isEducator}
-                />
+                {isEditMode ? (
+                    <CurriculumGraphEditor 
+                        nodes={editableNodes}
+                        edges={editableEdges}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
+                        onConnect={onConnect}
+                        onNodeClick={onNodeClick}
+                        onOpenSettings={() => {
+                            setCourseVisibility(course?.is_public ? 'public' : 'private');
+                            setIsSettingsOpen(true);
+                        }}
+                        onAddNode={() => {
+                            const newCount = nodeCounter + 1;
+                            const newNodeId = `n-${newCount}`;
+                            setNodeCounter(newCount);
+                            const newNode = {
+                                id: newNodeId,
+                                type: 'editorNode',
+                                position: { x: Math.random() * 200, y: Math.random() * 200 },
+                                data: { label: `New Concept ${nodeCounter}`, isEducator: true, isDraggable: true }
+                            };
+                            setEditableNodes(nds => [...nds, newNode]);
+                        }}
+                        onDeploy={() => {
+                            // TODO: Add actual API call to save edits
+                            handleSaveEdits();
+                        }}
+                    />
+                ) : (
+                    <CourseGraph
+                        nodes={displayNodes}
+                        edges={editableEdges}
+                        onNodeClick={onNodeClick}
+                        isEducator={isEducator}
+                    />
+                )}
             </main>
 
             {/* SIDE PANEL INTERACTIVE OVERLAY */}
@@ -481,6 +524,153 @@ export default function CourseView() {
                 </DialogContent>
             </Dialog>
 
+            {/* Course Global Settings Dialog */}
+            <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                <DialogContent className="sm:max-w-xl md:max-w-2xl overflow-hidden rounded-[2rem] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 p-8">
+                    <DialogHeader>
+                        <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest mb-2"><Settings2 size={14} /> Course Parameters</div>
+                        <DialogTitle className="text-3xl font-extrabold tracking-tight">Configuration Profile</DialogTitle>
+                        <DialogDescription className="text-base font-medium">Protect and modify global properties for your generated curriculum map.</DialogDescription>
+                    </DialogHeader>
+
+                    {/* Quiz Configuration Section */}
+                    <div className="space-y-6 pt-6">
+                        {/* Course Visibility */}
+                        <div className="space-y-3 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+                            <Label className="uppercase tracking-widest text-[10px] font-black text-zinc-500 flex items-center gap-2"><FileKey size={14} /> Course Visibility</Label>
+                            <Select value={courseVisibility} onValueChange={setCourseVisibility}>
+                                <SelectTrigger className="h-14 font-bold border-2 rounded-xl">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="public">
+                                        <span className="font-bold flex items-center gap-2 tracking-normal text-emerald-600">
+                                            <Globe size={14} /> Public — Anyone can enroll
+                                        </span>
+                                    </SelectItem>
+                                    <SelectItem value="private">
+                                        <span className="font-bold flex items-center gap-2 tracking-normal text-zinc-500">
+                                            <Lock size={14} /> Private — By link or invitation only
+                                        </span>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs font-medium text-zinc-400 pl-1">
+                                {courseVisibility === 'public'
+                                    ? 'This course will be discoverable and open for anyone to enroll.'
+                                    : 'Only users with a direct link or an invitation can access this course.'}
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest">
+                            <BrainCircuit size={14} /> Quiz Configuration (All Nodes)
+                        </div>
+
+                        {/* Number of Questions */}
+                        <div className="space-y-3">
+                            <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><BrainCircuit size={12} /> Number of Questions</span>
+                                <span className="text-lg font-black text-blue-600">{courseQuestionsCount}</span>
+                            </Label>
+                            <input
+                                type="range"
+                                min={5}
+                                max={50}
+                                step={5}
+                                value={courseQuestionsCount}
+                                onChange={(e) => setCourseQuestionsCount(parseInt(e.target.value))}
+                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-600 bg-zinc-200 dark:bg-zinc-800"
+                            />
+                            <div className="flex justify-between text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                <span>5 min</span>
+                                <span>50 max</span>
+                            </div>
+                        </div>
+
+                        {/* Pass Threshold */}
+                        <div className="space-y-3">
+                            <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><Target size={12} /> Pass Threshold</span>
+                                <span className="text-lg font-black text-emerald-600">{coursePassThreshold}%</span>
+                            </Label>
+                            <input
+                                type="range"
+                                min={30}
+                                max={100}
+                                step={5}
+                                value={coursePassThreshold}
+                                onChange={(e) => setCoursePassThreshold(parseInt(e.target.value))}
+                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-emerald-600 bg-zinc-200 dark:bg-zinc-800"
+                            />
+                            <div className="flex justify-between text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                <span>30% min</span>
+                                <span>100% max</span>
+                            </div>
+                            <p className="text-[11px] text-zinc-400 font-medium leading-relaxed">
+                                Students must score at or above this percentage to master each node.
+                            </p>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="mt-8">
+                        <Button 
+                            size="lg" 
+                            className="w-full font-bold h-14 bg-zinc-900 border-none hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-xl" 
+                            disabled={isSavingSettings}
+                            onClick={async () => {
+                                setIsSavingSettings(true);
+                                try {
+                                    await CourseAPI.updateCourseSettings(courseId, {
+                                        questions_count: courseQuestionsCount,
+                                        pass_threshold: coursePassThreshold,
+                                        is_public: courseVisibility === 'public'
+                                    });
+                                    setIsSettingsOpen(false);
+                                    // Let node UI know nodes might be updated
+                                    setEditableNodes(nds => nds.map(n => ({
+                                        ...n,
+                                        data: {
+                                            ...n.data,
+                                            questions_count: courseQuestionsCount,
+                                            pass_threshold: coursePassThreshold
+                                        }
+                                    })));
+                                    setCourse(c => ({ ...c, is_public: courseVisibility === 'public' }));
+                                    setShowSuccessDialog(true);
+                                } catch (error) {
+                                    alert("Failed to update settings: " + (error.response?.data?.detail || error.message));
+                                } finally {
+                                    setIsSavingSettings(false);
+                                }
+                            }}
+                        >
+                            {isSavingSettings ? <Loader2 size={18} className="mr-2 animate-spin" /> : <ShieldCheck size={18} className="mr-2" />} 
+                            {isSavingSettings ? "Saving Settings..." : "Save Settings"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Celebration Dialog */}
+            <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+                <DialogContent className="sm:max-w-md text-center p-10 border-emerald-500 border-2 bg-gradient-to-b from-emerald-50 to-white dark:from-emerald-950/40 dark:to-zinc-950 shadow-2xl overflow-hidden" showCloseButton={false}>
+                    <DialogHeader>
+                        <div className="mx-auto bg-emerald-100 text-emerald-600 rounded-[2rem] p-6 mb-6 ring-8 ring-emerald-50 dark:bg-emerald-900/50 dark:ring-emerald-900/20 inline-flex shadow-inner">
+                            <CheckCircle2 size={56} strokeWidth={2.5} />
+                        </div>
+                        <DialogTitle className="text-4xl font-black text-emerald-700 dark:text-emerald-400 mb-3 tracking-tight">Success!</DialogTitle>
+                        <DialogDescription className="text-xl text-emerald-600/80 font-bold leading-relaxed px-4">
+                            Course settings have been successfully updated.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-6" />
+                    <DialogFooter className="sm:justify-center">
+                        <Button className="bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.02] text-white shadow-xl shadow-emerald-600/30 w-full text-xl py-8 rounded-2xl font-extrabold transition-all" onClick={() => setShowSuccessDialog(false)}>
+                            Continue Editing
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

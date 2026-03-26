@@ -30,17 +30,18 @@ def parse_skills(request: ParseSkillsRequest):
     if not raw:
         raise HTTPException(status_code=400, detail="raw_text must not be empty")
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        # Fallback: simple split on commas and newlines
-        skills = [s.strip().strip("-•*").strip() for s in raw.replace("\n", ",").split(",") if s.strip()]
-        return {"skills": skills}
+    # api_key = os.getenv("GEMINI_API_KEY")
+    # if not api_key:
+    #     # Fallback: simple split on commas and newlines
+    #     skills = [s.strip().strip("-•*").strip() for s in raw.replace("\n", ",").split(",") if s.strip()]
+    #     return {"skills": skills}
 
     try:
-        from google import genai
-        from google.genai import types
+        import vertexai
+        from vertexai.generative_models import GenerativeModel, GenerationConfig
 
-        client = genai.Client(api_key=api_key)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./gcp-service-account.json"
+        vertexai.init(project=os.getenv("GCP_PROJECT_ID"), location=os.getenv("GCP_LOCATION"))
 
         prompt = f"""You are a curriculum expert. The user has provided a list of skills / concepts in {"CSV" if request.format_hint == "csv" else "unstructured raw text"} format.
 
@@ -61,21 +62,19 @@ GOOD: 'Functions'
 BAD: 'Basic Arithmetic And Logical Operators'
 GOOD: 'Operators'
 6. Remove exact duplicates.
-7. Return them as a JSON array of strings under the key "skills"."""
+7. Return them as a JSON object with a single key "skills" containing an array of strings."""
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash-lite',
-            contents=prompt,
-            config=types.GenerateContentConfig(
+        model = GenerativeModel("gemini-2.5-flash") # use appropriate available vertex model
+        response = model.generate_content(
+            prompt,
+            generation_config=GenerationConfig(
                 temperature=0.2,
-                response_mime_type='application/json',
-                response_schema=ParsedSkillsList,
+                response_mime_type='application/json'
             )
         )
 
         data = json.loads(response.text)
         return data
-
     except Exception as e:
         print(f"Gemini parse-skills error: {e}")
         # Fallback to simple split
@@ -288,19 +287,42 @@ def update_skill_settings(skill_id: str, req: SkillSettingsUpdate, supabase: Cli
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+from typing import Optional
+
 class CourseSettingsUpdate(BaseModel):
     questions_count: int = 20
     pass_threshold: int = 60
+    is_public: Optional[bool] = None
 
 @router.put("/api/courses/{course_id}/settings")
 def update_course_settings(course_id: str, req: CourseSettingsUpdate, supabase: Client = Depends(get_supabase_client)):
-    """Update quiz settings for ALL skills in a course at once"""
+    """Update quiz settings for ALL skills in a course at once, and global course properties"""
     try:
+        # Update skills
         res = supabase.table("skills").update({
             "questions_count": req.questions_count,
             "pass_threshold": req.pass_threshold
         }).eq("course_id", course_id).execute()
-        return {"status": "success", "updated": len(res.data) if res.data else 0}
+
+        # Update course properties if provided
+        course_updates = {}
+        if req.is_public is not None:
+            course_updates["is_public"] = req.is_public
+            
+        courses_updated = 0
+        if course_updates:
+            print(f"Updating course {course_id} with {course_updates}")
+            c_res = supabase.table("courses").update(course_updates).eq("id", course_id).execute()
+            print(f"Course update result: {c_res}")
+            courses_updated = len(c_res.data) if c_res.data else 0
+
+        return {
+            "status": "success", 
+            "updated_skills": len(res.data) if res.data else 0,
+            "updated_courses": courses_updated
+        }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
