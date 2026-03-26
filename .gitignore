@@ -11,6 +11,7 @@ venv/
 # Environment variables
 .env
 .env.local
+gcp-service-account.json
 
 # Documentation / Markdown
 *.md
