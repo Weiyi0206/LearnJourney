@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
+import { getLayoutedElements } from '@/utils/layoutGraph';
 
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -86,24 +87,26 @@ export default function CourseCreator() {
     const handleGenerate = (data) => {
         setCourseInfo({ ...courseInfo, title: data.title, description: data.description });
 
-        const typedNodes = data.nodes.map((n, index) => {
-            return {
-                ...n,
-                type: 'editorNode',
-                position: n.position || { x: 200 + (index * 150), y: 250 + ((index % 2) * 100) }
-            };
-        });
-
-        const stylizedEdges = data.edges.map((e, i) => ({
-            ...e,
-            id: `e-${e.source}-${e.target}`,
-            animated: true,
-            style: { stroke: '#818cf8', strokeWidth: 3 }
+        const typedNodes = data.nodes.map((n) => ({
+            ...n,
+            type: 'editorNode',
+            position: n.position || { x: 0, y: 0 },
         }));
 
-        setNodes(typedNodes);
+        const stylizedEdges = data.edges.map((e) => ({
+            ...e,
+            id: `e-${e.source}-${e.target}`,
+            type: 'default',
+            animated: true,
+            style: { stroke: '#818cf8', strokeWidth: 3 },
+        }));
+
+        // Apply dagre auto-layout (Left-to-Right)
+        const { nodes: layoutedNodes } = getLayoutedElements(typedNodes, stylizedEdges, 'LR');
+
+        setNodes(layoutedNodes);
         setEdges(stylizedEdges);
-        setNodeCounter(typedNodes.length + 1);
+        setNodeCounter(layoutedNodes.length + 1);
         setStep('editor');
     };
 
@@ -117,6 +120,7 @@ export default function CourseCreator() {
             if (edgeExists(connection.source, connection.target, eds)) return eds;
             if (wouldCreateCycle(connection.source, connection.target, eds)) return eds;
 
+            connection.type = 'default';
             connection.animated = true;
             connection.style = { stroke: '#818cf8', strokeWidth: 3 };
             return addEdge(connection, eds);

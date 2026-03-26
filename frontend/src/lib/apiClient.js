@@ -112,6 +112,15 @@ export const CourseAPI = {
             console.error('Error updating course settings:', error);
             throw error;
         }
+    },
+    updateCourseGraph: async (courseId, payload) => {
+        try {
+            const response = await client.put(`/api/courses/${courseId}/graph`, payload);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating course graph:', error);
+            throw error;
+        }
     }
 };
 

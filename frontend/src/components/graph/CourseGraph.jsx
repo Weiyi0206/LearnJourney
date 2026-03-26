@@ -15,6 +15,7 @@ export default function CourseGraph({ nodes, edges, onNodeClick, isEducator }) {
                 nodeTypes={nodeTypes}
                 onNodeClick={onNodeClick}
                 nodesDraggable={false}
+                defaultEdgeOptions={{ type: 'default' }}
                 fitView
                 className="w-full h-full"
             >

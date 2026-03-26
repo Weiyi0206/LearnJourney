@@ -229,11 +229,14 @@ def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabas
             old_id = node.get("id")
             node_data = node.get("data", {})
             label = node_data.get("label", "Unknown Skill")
+            pos = node.get("position", {})
             skill_data = {
                 "course_id": course_id,
                 "name": label,
                 "questions_count": node_data.get("questions_count", 20),
-                "pass_threshold": node_data.get("pass_threshold", 60)
+                "pass_threshold": node_data.get("pass_threshold", 60),
+                "position_x": pos.get("x"),
+                "position_y": pos.get("y"),
             }
             skill_res = supabase.table("skills").insert(skill_data).execute()
             if skill_res.data:
@@ -326,3 +329,94 @@ def update_course_settings(course_id: str, req: CourseSettingsUpdate, supabase: 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+class GraphUpdateRequest(BaseModel):
+    nodes: List[Dict[str, Any]]
+    edges: List[Dict[str, Any]]
+
+@router.put("/api/courses/{course_id}/graph")
+def update_course_graph(course_id: UUID, req: GraphUpdateRequest, supabase: Client = Depends(get_supabase_client)):
+    """Synchronize the full graph state with the database for an existing course."""
+    try:
+        cid_str = str(course_id)
+        
+        # 1. Fetch current skills to identify what to delete/update
+        current_skills_res = supabase.table("skills").select("id").eq("course_id", cid_str).execute()
+        current_skill_ids = {s["id"] for s in current_skills_res.data}
+        
+        id_mapping = {} # maps old/client ID -> actual UUID
+        incoming_ids = set()
+        
+        # 2. Process Nodes
+        for node in req.nodes:
+            old_id = node.get("id")
+            node_data = node.get("data", {})
+            name = node_data.get("label", "New Unit")
+            q_count = node_data.get("questions_count", 20)
+            p_thresh = node_data.get("pass_threshold", 60)
+            pos = node.get("position", {})
+            pos_x = pos.get("x")
+            pos_y = pos.get("y")
+            
+            # Check if this node is an existing UUID
+            is_uuid = False
+            try:
+                UUID(old_id)
+                is_uuid = True
+            except (ValueError, TypeError):
+                is_uuid = False
+                
+            if is_uuid and old_id in current_skill_ids:
+                # Update existing — persist new position too
+                supabase.table("skills").update({
+                    "name": name,
+                    "questions_count": q_count,
+                    "pass_threshold": p_thresh,
+                    "position_x": pos_x,
+                    "position_y": pos_y,
+                }).eq("id", old_id).execute()
+                id_mapping[old_id] = old_id
+                incoming_ids.add(old_id)
+            else:
+                # Insert new with position
+                new_skill = {
+                    "course_id": cid_str,
+                    "name": name,
+                    "questions_count": q_count,
+                    "pass_threshold": p_thresh,
+                    "position_x": pos_x,
+                    "position_y": pos_y,
+                }
+                res = supabase.table("skills").insert(new_skill).execute()
+                if res.data:
+                    new_uuid = res.data[0]["id"]
+                    id_mapping[old_id] = new_uuid
+                    incoming_ids.add(new_uuid)
+        
+        # 3. Delete nodes that were removed from the UI
+        ids_to_delete = current_skill_ids - incoming_ids
+        if ids_to_delete:
+            # Note: This will cascade to edges and progress if DB is configured with foreign key cascades
+            supabase.table("skills").delete().in_("id", list(ids_to_delete)).execute()
+            
+        # 4. Re-sync Edges (Simplest way: delete all and re-add)
+        supabase.table("prerequisite_edges").delete().eq("course_id", cid_str).execute()
+        
+        for edge in req.edges:
+            source_client = edge.get("source")
+            target_client = edge.get("target")
+            
+            source_uuid = id_mapping.get(source_client)
+            target_uuid = id_mapping.get(target_client)
+            
+            if source_uuid and target_uuid:
+                supabase.table("prerequisite_edges").insert({
+                    "course_id": cid_str,
+                    "source_skill_id": source_uuid,
+                    "target_skill_id": target_uuid
+                }).execute()
+                
+        return {"status": "success", "nodes_processed": len(req.nodes)}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

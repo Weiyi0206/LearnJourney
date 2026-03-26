@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { ReactFlow, Controls, Background, MiniMap } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, Rocket } from "lucide-react";
+import { Plus, Settings, Rocket, X } from "lucide-react";
 
 // Re-use the shared node component so style is always identical
 import CustomNode from './CustomNode';
@@ -13,7 +13,7 @@ function EditorNode({ data }) {
     return <CustomNode data={{ ...data, isEducator: true, isDraggable: true }} />;
 }
 
-export default function CurriculumGraphEditor({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onOpenSettings, onAddNode, onDeploy }) {
+export default function CurriculumGraphEditor({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onOpenSettings, onAddNode, onDeploy, onCancel }) {
     const nodeTypes = useMemo(() => ({ editorNode: EditorNode }), []);
 
     return (
@@ -31,21 +31,26 @@ export default function CurriculumGraphEditor({ nodes, edges, onNodesChange, onE
                     </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-1">
                     <Button variant="ghost" size="sm" className="font-bold rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={onAddNode}>
                         <Plus size={16} className="mr-2 text-indigo-500" /> Add Node
                     </Button>
                     <Button variant="ghost" size="sm" className="font-bold rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={onOpenSettings}>
                         <Settings size={16} className="mr-2 text-zinc-500" /> Settings
                     </Button>
+                    {onCancel && (
+                        <Button variant="ghost" size="sm" className="font-bold rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={onCancel}>
+                            <X size={16} className="mr-2" /> Cancel
+                        </Button>
+                    )}
                 </div>
 
-                <div className="pl-4">
+                <div className="pl-1">
                     <Button
                         className="font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg shadow-indigo-500/20 px-6"
                         onClick={onDeploy}
                     >
-                        <Rocket size={16} className="mr-2" /> Deploy Curriculum
+                        <Rocket size={16} className="mr-2" /> Deploy
                     </Button>
                 </div>
             </div>
@@ -60,6 +65,9 @@ export default function CurriculumGraphEditor({ nodes, edges, onNodesChange, onE
                 onConnect={onConnect}
                 onNodeClick={onNodeClick}
                 nodesDraggable={true}
+                nodesDeleteable={false}
+                deleteKeyCode={['Backspace', 'Delete']}
+                defaultEdgeOptions={{ type: 'default' }}
                 fitView
                 className="w-full h-full"
             >

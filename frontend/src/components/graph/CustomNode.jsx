@@ -5,6 +5,7 @@ import { CheckCircle2, Lock, AlertCircle, GripHorizontal } from 'lucide-react';
 // ─── Shared base node shell ────────────────────────────────────────────────
 // Used by: CourseView (educator/student) + CurriculumGraphEditor (add node / generated)
 // Keeps a single source-of-truth for the visual design.
+// Handles: target (incoming) on LEFT, source (outgoing) on RIGHT  →  LR layout
 
 export default function CustomNode({ data }) {
     const { label, isEducator, studentStatus, hasAlert, isDraggable } = data;
@@ -14,10 +15,10 @@ export default function CustomNode({ data }) {
         if (studentStatus === 'Mastered') {
             return (
                 <div className="bg-emerald-500 text-white font-black rounded-2xl px-6 py-4 shadow-[0_0_24px_rgba(16,185,129,0.35)] min-w-[160px] flex items-center justify-between gap-4 border-2 border-transparent">
-                    <Handle type="target" position={Position.Top} className="opacity-0" />
+                    <Handle type="target" position={Position.Left} className="opacity-0" />
                     <span className="text-base tracking-tight">{label}</span>
                     <CheckCircle2 size={18} className="text-emerald-100 shrink-0" />
-                    <Handle type="source" position={Position.Bottom} className="opacity-0" />
+                    <Handle type="source" position={Position.Right} className="opacity-0" />
                 </div>
             );
         }
@@ -26,10 +27,10 @@ export default function CustomNode({ data }) {
             return (
                 <div className="bg-blue-600 text-white font-black rounded-2xl px-6 py-4 shadow-[0_0_28px_rgba(59,130,246,0.5)] border-4 border-blue-400/30 min-w-[160px] flex items-center justify-between gap-4 relative">
                     <div className="absolute inset-0 bg-blue-400 rounded-2xl animate-ping opacity-20 pointer-events-none" />
-                    <Handle type="target" position={Position.Top} className="opacity-0" />
+                    <Handle type="target" position={Position.Left} className="opacity-0" />
                     <span className="relative z-10 text-base tracking-tight">{label}</span>
                     <div className="w-3 h-3 bg-white rounded-full relative z-10 shadow-[0_0_10px_white] shrink-0" />
-                    <Handle type="source" position={Position.Bottom} className="opacity-0" />
+                    <Handle type="source" position={Position.Right} className="opacity-0" />
                 </div>
             );
         }
@@ -37,10 +38,10 @@ export default function CustomNode({ data }) {
         // Locked
         return (
             <div className="bg-zinc-200 dark:bg-zinc-800/80 text-zinc-400 dark:text-zinc-500 font-bold rounded-2xl px-6 py-4 border-2 border-dashed border-zinc-300 dark:border-zinc-700 min-w-[160px] flex items-center justify-between gap-4 opacity-80 cursor-pointer hover:opacity-100 hover:bg-zinc-300 dark:hover:bg-zinc-800 transition-all">
-                <Handle type="target" position={Position.Top} className="opacity-0" />
+                <Handle type="target" position={Position.Left} className="opacity-0" />
                 <span className="text-base tracking-tight">{label}</span>
                 <Lock size={16} className="shrink-0" />
-                <Handle type="source" position={Position.Bottom} className="opacity-0" />
+                <Handle type="source" position={Position.Right} className="opacity-0" />
             </div>
         );
     }
@@ -67,8 +68,8 @@ export default function CustomNode({ data }) {
 
             <Handle
                 type="target"
-                position={Position.Top}
-                className="w-16 h-2 bg-indigo-400 dark:bg-indigo-500 rounded-full border-none -top-1"
+                position={Position.Left}
+                className="w-2 h-10 bg-indigo-400 dark:bg-indigo-500 rounded-full border-none -left-1"
             />
 
             <div className="px-6 py-5 text-center">
@@ -84,8 +85,8 @@ export default function CustomNode({ data }) {
 
             <Handle
                 type="source"
-                position={Position.Bottom}
-                className="w-16 h-2 bg-indigo-400 dark:bg-indigo-500 rounded-full border-none -bottom-1"
+                position={Position.Right}
+                className="w-2 h-10 bg-indigo-400 dark:bg-indigo-500 rounded-full border-none -right-1"
             />
         </div>
     );

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { CourseService, StudentService, CourseAPI } from "@/lib/apiClient";
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
+import { getLayoutedElements } from '@/utils/layoutGraph';
 
 // Shadcn UI
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,8 @@ export default function CourseView() {
     const [isLoading, setIsLoading] = useState(true);
 
     const [isEditMode, setIsEditMode] = useState(false);
+    const [committedNodes, setCommittedNodes] = useState([]); // snapshot for cancel
+    const [committedEdges, setCommittedEdges] = useState([]);
     const [isEnrolled, setIsEnrolled] = useState(false);
     const [isCourseOwner, setIsCourseOwner] = useState(false);
     const [isEnrolling, setIsEnrolling] = useState(false);
@@ -59,66 +62,6 @@ export default function CourseView() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [copiedLink, setCopiedLink] = useState(false);
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-
-    const layoutGraph = useCallback((nodes, edges) => {
-        const layers = {};
-        const indegree = {};
-        const adjacency = {};
-
-        nodes.forEach(n => {
-            indegree[n.id] = 0;
-            adjacency[n.id] = [];
-        });
-
-        edges.forEach(e => {
-            if (indegree[e.target] !== undefined) indegree[e.target]++;
-            if (adjacency[e.source]) adjacency[e.source].push(e.target);
-        });
-
-        let currentLayer = 0;
-        let queue = Object.keys(indegree).filter(id => indegree[id] === 0);
-        const assigned = new Set();
-
-        while (queue.length > 0) {
-            layers[currentLayer] = queue;
-            const nextQueue = [];
-            queue.forEach(id => {
-                assigned.add(id);
-                adjacency[id].forEach(neighbor => {
-                    indegree[neighbor]--;
-                    if (indegree[neighbor] === 0) {
-                        nextQueue.push(neighbor);
-                    }
-                });
-            });
-            queue = nextQueue;
-            currentLayer++;
-        }
-
-        const unassigned = nodes.filter(n => !assigned.has(n.id)).map(n => n.id);
-        if (unassigned.length > 0) {
-            layers[currentLayer] = unassigned;
-        }
-
-        const xOffset = 300;
-        const yOffset = 150;
-        const newNodes = [...nodes];
-
-        Object.keys(layers).forEach(layerIdx => {
-            const layerNodes = layers[layerIdx];
-            const numNodes = layerNodes.length;
-            const startY = -((numNodes - 1) * yOffset) / 2;
-
-            layerNodes.forEach((nodeId, idx) => {
-                const node = newNodes.find(n => n.id === nodeId);
-                if (node) {
-                    node.position = { x: parseInt(layerIdx) * xOffset, y: startY + idx * yOffset };
-                }
-            });
-        });
-
-        return newNodes;
-    }, []);
 
     const fetchGraph = useCallback(async () => {
         try {
@@ -172,18 +115,30 @@ export default function CourseView() {
                 return {
                     id: s.id,
                     type: 'customNode',
-                    position: { x: 0, y: 0 },
+                    // Use saved position if it exists, otherwise place at origin for dagre
+                    position: {
+                        x: s.position_x ?? 0,
+                        y: s.position_y ?? 0,
+                    },
                     data: {
                         label: s.name,
                         isEducator,
                         studentStatus,
                         hasAlert: false,
-                        isDraggable: false
+                        isDraggable: false,
+                        questions_count: s.questions_count,
+                        pass_threshold: s.pass_threshold,
                     }
                 };
             });
 
-            const layedOutNodes = layoutGraph(mappedNodes, mappedEdges);
+            // Only run dagre if NO node has a saved position yet (first load after AI generation)
+            const hasStoredPositions = data.skills.some(
+                s => s.position_x !== null && s.position_x !== undefined
+            );
+            const layedOutNodes = hasStoredPositions
+                ? mappedNodes
+                : getLayoutedElements(mappedNodes, mappedEdges, 'LR').nodes;
 
             let studentsList = [];
             if (isEducator && isOwner) {
@@ -205,14 +160,19 @@ export default function CourseView() {
             setCourseVisibility(data.is_public ? "public" : "private");
 
             setDisplayNodes(layedOutNodes);
-            setEditableNodes(layedOutNodes.map(n => ({ ...n, type: 'editorNode' })));
+            // Give editor nodes the correct type and educator flags
+            setEditableNodes(layedOutNodes.map(n => ({
+                ...n,
+                type: 'editorNode',
+                data: { ...n.data, isEducator: true, isDraggable: true }
+            })));
             setEditableEdges(mappedEdges);
         } catch (err) {
             console.error("Failed to fetch course graph:", err);
         } finally {
             setIsLoading(false);
         }
-    }, [courseId, isEducator, user?.id, layoutGraph]);
+    }, [courseId, isEducator, user?.id]);
 
     useEffect(() => {
         fetchGraph();
@@ -222,14 +182,47 @@ export default function CourseView() {
     const onEdgesChange = useCallback((changes) => setEditableEdges((eds) => applyEdgeChanges(changes, eds)), []);
     const onConnect = useCallback((connection) => {
         setEditableEdges((eds) => {
+            connection.type = 'default';
             connection.animated = true;
             connection.style = { stroke: '#818cf8', strokeWidth: 3 };
             return addEdge(connection, eds);
         });
     }, []);
 
-    const handleSaveEdits = useCallback(() => {
+    const handleSaveEdits = useCallback(async () => {
+        setIsSavingSettings(true);
+        try {
+            const payload = {
+                nodes: editableNodes,
+                edges: editableEdges
+            };
+            await CourseAPI.updateCourseGraph(courseId, payload);
+            setIsEditMode(false);
+            await fetchGraph(); // Refresh to get real UUID IDs for new nodes
+        } catch (error) {
+            alert("Failed to save edits: " + (error.response?.data?.detail || error.message));
+        } finally {
+            setIsSavingSettings(false);
+        }
+    }, [courseId, editableNodes, editableEdges, fetchGraph]);
+
+    const handleCancelEdits = useCallback(() => {
+        // Restore the snapshot taken when edit mode was entered
+        setEditableNodes(committedNodes);
+        setEditableEdges(committedEdges);
         setIsEditMode(false);
+        setIsSheetOpen(false);
+    }, [committedNodes, committedEdges]);
+
+    const updateNodeData = useCallback((nodeId, newData) => {
+        setEditableNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: newData } : n));
+        setIsSheetOpen(false);
+    }, []);
+
+    const deleteNode = useCallback((nodeId) => {
+        setEditableNodes(nds => nds.filter(n => n.id !== nodeId));
+        setEditableEdges(eds => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
+        setIsSheetOpen(false);
     }, []);
 
     const handleEnroll = async () => {
@@ -270,7 +263,9 @@ export default function CourseView() {
     };
 
     const onNodeClick = (event, node) => {
-        if (!isEducator && !isEnrolled) {
+        // In edit mode always open the editor sheet
+        // In view mode only open if enrolled or is educator
+        if (!isEditMode && !isEducator && !isEnrolled) {
             return;
         }
         setSelectedNode(node);
@@ -327,7 +322,13 @@ export default function CourseView() {
 
                     {isEducator && isCourseOwner ? (
                         <>
-                            <Button variant="outline" className="font-bold rounded-xl border-zinc-200 dark:border-zinc-800 flex gap-2" onClick={() => setIsEditMode(true)}>
+                            <Button variant="outline" className="font-bold rounded-xl border-zinc-200 dark:border-zinc-800 flex gap-2"
+                                onClick={() => {
+                                    // Snapshot current committed state before entering edit
+                                    setCommittedNodes(editableNodes);
+                                    setCommittedEdges(editableEdges);
+                                    setIsEditMode(true);
+                                }}>
                                 <Pencil size={16} /> Edit Graph
                             </Button>
                             <Dialog>
@@ -461,18 +462,28 @@ export default function CourseView() {
                             const newCount = nodeCounter + 1;
                             const newNodeId = `n-${newCount}`;
                             setNodeCounter(newCount);
+                            // Place new node near the centre of the existing graph
+                            const xs = editableNodes.map(n => n.position?.x ?? 0);
+                            const ys = editableNodes.map(n => n.position?.y ?? 0);
+                            const cx = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : 300;
+                            const cy = ys.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : 200;
                             const newNode = {
                                 id: newNodeId,
                                 type: 'editorNode',
-                                position: { x: Math.random() * 200, y: Math.random() * 200 },
-                                data: { label: `New Concept ${nodeCounter}`, isEducator: true, isDraggable: true }
+                                position: {
+                                    x: cx + (Math.random() - 0.5) * 200,
+                                    y: cy + (Math.random() - 0.5) * 200,
+                                },
+                                data: { label: `New Concept ${newCount}`, isEducator: true, isDraggable: true }
                             };
                             setEditableNodes(nds => [...nds, newNode]);
+                            // Immediately open the editor sheet for the new node
+                            setSelectedNode(newNode);
+                            setIsSheetOpen(true);
                         }}
-                        onDeploy={() => {
-                            // TODO: Add actual API call to save edits
-                            handleSaveEdits();
-                        }}
+                        onDeploy={handleSaveEdits}
+                        isDeploying={isSavingSettings}
+                        onCancel={handleCancelEdits}
                     />
                 ) : (
                     <CourseGraph
@@ -486,7 +497,13 @@ export default function CourseView() {
 
             {/* SIDE PANEL INTERACTIVE OVERLAY */}
             <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-                {isEducator ? (
+                {isEditMode ? (
+                    <NodeEditorSheet
+                        node={selectedNode}
+                        onUpdateNode={updateNodeData}
+                        onDeleteNode={deleteNode}
+                    />
+                ) : isEducator ? (
                     <EducatorNodePanel node={selectedNode} fullCourseData={course} isCourseOwner={isCourseOwner} />
                 ) : (
                     <StudentNodePanel node={selectedNode} fullCourseData={course} />

@@ -24,6 +24,8 @@ class SkillBase(BaseModel):
     complexity_score: float = 0.0
     questions_count: int = 20
     pass_threshold: int = 60
+    position_x: Optional[float] = None
+    position_y: Optional[float] = None
 
 class Skill(SkillBase):
     id: UUID
