@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Icons
@@ -52,6 +54,8 @@ export default function CourseView() {
     const [studentStats, setStudentStats] = useState({ mastered: 0, total: 0, percent: 0 });
 
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [courseTitle, setCourseTitle] = useState('');
+    const [courseDescription, setCourseDescription] = useState('');
     const [courseQuestionsCount, setCourseQuestionsCount] = useState(20);
     const [coursePassThreshold, setCoursePassThreshold] = useState(70);
     const [courseVisibility, setCourseVisibility] = useState('public');
@@ -305,7 +309,7 @@ export default function CourseView() {
                                 </div>
                             )}
                         </div>
-                        <p className="text-sm text-zinc-500 font-medium line-clamp-1">{course.description}</p>
+                        <p className="text-sm text-zinc-500 font-medium">{course.description}</p>
                     </div>
                 </div>
 
@@ -329,7 +333,7 @@ export default function CourseView() {
                                     setCommittedEdges(editableEdges);
                                     setIsEditMode(true);
                                 }}>
-                                <Pencil size={16} /> Edit Graph
+                                <Pencil size={16} /> Edit Course
                             </Button>
                             <Dialog>
                                 <DialogTrigger asChild>
@@ -479,6 +483,8 @@ export default function CourseView() {
                         onConnect={onConnect}
                         onNodeClick={onNodeClick}
                         onOpenSettings={() => {
+                            setCourseTitle(course?.title ?? '');
+                            setCourseDescription(course?.description ?? '');
                             setCourseVisibility(course?.is_public ? 'public' : 'private');
                             setIsSettingsOpen(true);
                         }}
@@ -567,15 +573,40 @@ export default function CourseView() {
 
             {/* Course Global Settings Dialog */}
             <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-                <DialogContent className="sm:max-w-xl md:max-w-2xl overflow-hidden rounded-[2rem] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 p-8">
+                <DialogContent className="sm:max-w-xl md:max-w-2xl max-h-[90vh] overflow-y-auto rounded-[2rem] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 p-8">
                     <DialogHeader>
                         <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest mb-2"><Settings2 size={14} /> Course Parameters</div>
                         <DialogTitle className="text-3xl font-extrabold tracking-tight">Configuration Profile</DialogTitle>
                         <DialogDescription className="text-base font-medium">Protect and modify global properties for your generated curriculum map.</DialogDescription>
                     </DialogHeader>
 
-                    {/* Quiz Configuration Section */}
+                    {/* Course Info Section */}
                     <div className="space-y-6 pt-6">
+                        <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest">
+                            <Settings2 size={14} /> Course Identity
+                        </div>
+                        <div className="space-y-3">
+                            <Label className="uppercase tracking-widest text-[10px] font-black text-zinc-500">Course Title</Label>
+                            <Input
+                                value={courseTitle}
+                                onChange={(e) => setCourseTitle(e.target.value)}
+                                className="h-12 font-bold text-base border-2 rounded-xl focus-visible:ring-indigo-500"
+                                placeholder="e.g. Introduction to Python"
+                            />
+                        </div>
+                        <div className="space-y-3 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+                            <Label className="uppercase tracking-widest text-[10px] font-black text-zinc-500">Course Description</Label>
+                            <Textarea
+                                value={courseDescription}
+                                onChange={(e) => setCourseDescription(e.target.value)}
+                                className="min-h-[90px] font-medium resize-y border-2 rounded-xl focus-visible:ring-indigo-500"
+                                placeholder="Describe what students will learn..."
+                            />
+                        </div>
+                    </div>
+
+                    {/* Quiz Configuration Section */}
+                    <div className="space-y-6 pt-2">
                         {/* Course Visibility */}
                         <div className="space-y-3 pb-6 border-b border-zinc-200 dark:border-zinc-800">
                             <Label className="uppercase tracking-widest text-[10px] font-black text-zinc-500 flex items-center gap-2"><FileKey size={14} /> Course Visibility</Label>
@@ -662,12 +693,14 @@ export default function CourseView() {
                                 setIsSavingSettings(true);
                                 try {
                                     await CourseAPI.updateCourseSettings(courseId, {
+                                        title: courseTitle,
+                                        description: courseDescription,
                                         questions_count: courseQuestionsCount,
                                         pass_threshold: coursePassThreshold,
                                         is_public: courseVisibility === 'public'
                                     });
                                     setIsSettingsOpen(false);
-                                    // Let node UI know nodes might be updated
+                                    // Update local node quiz data
                                     setEditableNodes(nds => nds.map(n => ({
                                         ...n,
                                         data: {
@@ -676,7 +709,13 @@ export default function CourseView() {
                                             pass_threshold: coursePassThreshold
                                         }
                                     })));
-                                    setCourse(c => ({ ...c, is_public: courseVisibility === 'public' }));
+                                    // Update local course metadata
+                                    setCourse(c => ({
+                                        ...c,
+                                        title: courseTitle,
+                                        description: courseDescription,
+                                        is_public: courseVisibility === 'public'
+                                    }));
                                     setShowSuccessDialog(true);
                                 } catch (error) {
                                     alert("Failed to update settings: " + (error.response?.data?.detail || error.message));

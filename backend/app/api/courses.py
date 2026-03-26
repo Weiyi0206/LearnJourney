@@ -293,6 +293,8 @@ def update_skill_settings(skill_id: str, req: SkillSettingsUpdate, supabase: Cli
 from typing import Optional
 
 class CourseSettingsUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
     questions_count: int = 20
     pass_threshold: int = 60
     is_public: Optional[bool] = None
@@ -307,10 +309,14 @@ def update_course_settings(course_id: str, req: CourseSettingsUpdate, supabase: 
             "pass_threshold": req.pass_threshold
         }).eq("course_id", course_id).execute()
 
-        # Update course properties if provided
-        course_updates = {}
+        # Update course-level properties if provided
+        course_updates: Dict[str, Any] = {}
         if req.is_public is not None:
             course_updates["is_public"] = req.is_public
+        if req.title is not None:
+            course_updates["title"] = req.title
+        if req.description is not None:
+            course_updates["description"] = req.description
             
         courses_updated = 0
         if course_updates:
