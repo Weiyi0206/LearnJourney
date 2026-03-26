@@ -334,7 +334,7 @@ export default function CourseView() {
                             <Dialog>
                                 <DialogTrigger asChild>
                                     <Button className="font-bold bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-lg rounded-xl flex gap-2">
-                                        <Users size={16} /> Cohort Stats
+                                        <Users size={16} /> Student Stats
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent className="sm:max-w-3xl overflow-hidden rounded-[2rem]" aria-describedby="roster-description">
@@ -343,7 +343,31 @@ export default function CourseView() {
                                         <DialogTitle className="text-2xl font-extrabold">Student Roster</DialogTitle>
                                         <DialogDescription id="roster-description" className="sr-only">View enrolled student progress and analytics</DialogDescription>
                                     </DialogHeader>
-                                    <div className="p-4 max-h-[60vh] overflow-y-auto">
+
+                                    {/* ── Summary Stats ── */}
+                                    {(() => {
+                                        const total = course?.studentsList?.length ?? 0;
+                                        const mastered = course?.studentsList?.filter(s => s.totalNodes > 0 && s.completedNodes === s.totalNodes).length ?? 0;
+                                        const inProgress = total - mastered;
+                                        return (
+                                            <div className="grid grid-cols-3 gap-3 px-4 pt-4">
+                                                <div className="flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl py-4">
+                                                    <span className="text-3xl font-black text-zinc-900 dark:text-zinc-50">{total}</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mt-1">Total Enrolled</span>
+                                                </div>
+                                                <div className="flex flex-col items-center justify-center bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl py-4">
+                                                    <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{mastered}</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mt-1">Mastered All</span>
+                                                </div>
+                                                <div className="flex flex-col items-center justify-center bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-2xl py-4">
+                                                    <span className="text-3xl font-black text-blue-600 dark:text-blue-400">{inProgress}</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 mt-1">In Progress</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    <div className="p-4 max-h-[50vh] overflow-y-auto">
                                         {course?.studentsList?.length > 0 ? (
                                             <Table>
                                                 <TableHeader>
