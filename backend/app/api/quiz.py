@@ -80,41 +80,33 @@ def generate_quiz(req: QuizGenerateRequest, supabase: Client = Depends(get_supab
             prereqs_text = f"The student has already mastered: {', '.join(mastered_prerequisites)}. You may reference these topics as assumed knowledge."
 
         prompt = f"""
-        You are an expert university professor creating a comprehensive verification quiz for a student learning "{req.skill_name}" within the course "{req.course_title}".
+        You are an expert university professor creating a rigorous verification quiz for a student learning "{req.skill_name}" within the course "{req.course_title}".
         
         CONTEXT:
         {prereqs_text}
         
         INSTRUCTIONS:
-        1. Generate exactly {num_questions} multiple-choice questions about "{req.skill_name}" in Python.
-        2. VARIETY: Ensure the questions are highly diverse. Do not repeat the same concept. Mix the following styles:
-           - Conceptual/Definition questions.
-           - Code analysis (e.g., "What is the output of this snippet?").
-           - Debugging (e.g., "Why does this code throw an error?").
-           - Best practices/Application scenarios.
-        3. PROGRESSIVE DIFFICULTY: Start with easier foundational questions and gradually move to highly advanced edge cases.
-        4. PLAUSIBLE DISTRACTORS: The 3 incorrect options MUST be common student misconceptions. No obvious or joke answers.
-        5. STRICT SCOPE: Do NOT test concepts that are more advanced than "{req.skill_name}".
-        
-        Return the result as a JSON object matching this schema:
-        {{
-            "questions": [
-                {{
-                    "question": "The multiple-choice question text.",
-                    "options": ["A", "B", "C", "D"],
-                    "correct_index": 0,
-                    "explanation": "A pedagogical explanation."
-                }}
-            ]
-        }}
+        1. Generate exactly {num_questions} multiple-choice questions testing "{req.skill_name}".
+        2. COGNITIVE VARIETY: Map the questions across Bloom's Taxonomy:
+           - 30% Recall/Conceptual (Definitions, vocabulary)
+           - 40% Application (Predicting output, applying formulas/logic to a scenario)
+           - 30% Analysis/Debugging (Identifying errors, comparing approaches)
+        3. PROGRESSIVE DIFFICULTY: Order the questions from easiest to hardest.
+        4. THE DISTRACTORS (CRITICAL): The 3 incorrect options MUST represent actual, common student misconceptions. Do NOT use obvious, silly, or joke answers.
+        5. THE EXPLANATION: Your explanation must not only state why the correct answer is right, but explicitly point out the specific misconception that leads to the incorrect distractors.
+        6. SCOPE LIMIT: Do NOT include topics that are more advanced than "{req.skill_name}".
+
+        Ensure all code snippets (if applicable to the subject) are properly formatted.
         """
 
+        quiz_schema = QuizQuestionList.model_json_schema()
         model = GenerativeModel("gemini-2.5-pro") # use appropriate available vertex model
         response = model.generate_content(
             prompt,
             generation_config=GenerationConfig(
                 temperature=0.7,
-                response_mime_type='application/json'
+                response_mime_type='application/json',
+                response_schema=quiz_schema
             )
         )
 
