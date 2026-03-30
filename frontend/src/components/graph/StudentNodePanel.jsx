@@ -3,9 +3,27 @@ import { useNavigate } from "react-router-dom";
 import { SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, FileText, Video, ArrowUpCircle, Link as LinkIcon, CheckCircle2, Book, History, Trophy, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import Markdown from 'react-markdown';
+import { Sparkles, FileText, Video, ArrowUpCircle, Link as LinkIcon, CheckCircle2, Book, History, Trophy, XCircle, Clock, ChevronDown, ChevronRight } from "lucide-react";
 import { QuizService } from "@/lib/apiClient";
 import { useAuth } from "@/contexts/AuthContext";
+
+const markdownComponents = {
+    p: ({ node, ...props }) => <p className="mb-2 last:mb-0 inline-block w-full" {...props} />,
+    pre: ({ node, ...props }) => (
+        <pre className="mt-4 mb-4 text-left bg-zinc-900 text-zinc-100 border border-zinc-800 p-4 rounded-xl shadow-lg text-xs md:text-sm font-medium font-mono overflow-x-auto w-full max-w-full" {...props} />
+    ),
+    code(props) {
+        const { children, className, node, ...rest } = props;
+        const match = /language-(\w+)/.exec(className || '');
+        const isBlock = match || String(children).includes('\n');
+        if (!isBlock) {
+            return <code className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1 py-0.5 rounded break-words" {...rest}>{children}</code>;
+        }
+        return <code className="bg-transparent text-inherit p-0 font-mono" {...rest}>{children}</code>;
+    }
+};
 
 export default function StudentNodePanel({ node, fullCourseData }) {
     const navigate = useNavigate();
@@ -13,7 +31,7 @@ export default function StudentNodePanel({ node, fullCourseData }) {
 
     const [quizHistory, setQuizHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
-    const [expandedAttempt, setExpandedAttempt] = useState(null);
+    const [selectedAttempt, setSelectedAttempt] = useState(null);
 
     useEffect(() => {
         if (user?.id && node?.id) {
@@ -117,7 +135,7 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                                         }`}>
                                         <button
                                             className="w-full flex items-center justify-between p-4 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors"
-                                            onClick={() => setExpandedAttempt(expandedAttempt === idx ? null : idx)}
+                                            onClick={() => setSelectedAttempt(attempt)}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${attempt.passed
@@ -139,35 +157,9 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                                                 <Badge className={`text-[10px] px-2 py-0.5 font-bold ${attempt.passed ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
                                                     {attempt.passed ? "PASS" : "FAIL"}
                                                 </Badge>
-                                                {expandedAttempt === idx ? <ChevronUp size={14} className="text-zinc-400" /> : <ChevronDown size={14} className="text-zinc-400" />}
+                                                <ChevronRight size={16} className="text-zinc-400" />
                                             </div>
                                         </button>
-
-                                        {expandedAttempt === idx && attempt.questions && (
-                                            <div className="border-t border-zinc-100 dark:border-zinc-800 p-4 bg-zinc-50/50 dark:bg-zinc-900/30 space-y-3 max-h-[300px] overflow-y-auto">
-                                                {attempt.questions.map((q, qIdx) => (
-                                                    <div key={qIdx} className={`p-3 rounded-lg border text-sm ${q.is_correct
-                                                        ? "border-emerald-100 bg-emerald-50/50 dark:border-emerald-900/30 dark:bg-emerald-900/10"
-                                                        : "border-red-100 bg-red-50/50 dark:border-red-900/30 dark:bg-red-900/10"
-                                                        }`}>
-                                                        <div className="flex items-start gap-2 mb-1">
-                                                            {q.is_correct
-                                                                ? <CheckCircle2 size={14} className="text-emerald-500 mt-0.5 shrink-0" />
-                                                                : <XCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
-                                                            }
-                                                            <span className="font-medium text-zinc-800 dark:text-zinc-200 line-clamp-2">{q.question}</span>
-                                                        </div>
-                                                        {!q.is_correct && (
-                                                            <div className="ml-6 mt-1 text-[11px] text-zinc-500">
-                                                                <span className="text-red-500 font-bold">Your answer:</span> {q.options[q.selected_index] || "—"}
-                                                                <br />
-                                                                <span className="text-emerald-600 font-bold">Correct:</span> {q.options[q.correct_index]}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -175,6 +167,72 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                     </div>
                 )}
             </div>
+
+            <Dialog open={!!selectedAttempt} onOpenChange={(open) => !open && setSelectedAttempt(null)}>
+                <DialogContent className="sm:max-w-2xl lg:max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl">
+                    <DialogHeader className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
+                        <DialogTitle className="flex items-center gap-3 text-2xl font-black text-zinc-900 dark:text-zinc-50">
+                            {selectedAttempt?.passed ? <Trophy className="text-emerald-500" /> : <XCircle className="text-red-500" />}
+                            Comprehensive Quiz Review
+                            <Badge className={`ml-auto px-4 py-1 text-xs font-black ${selectedAttempt?.passed ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                                {selectedAttempt?.passed ? "PASSED" : "FAILED"}
+                            </Badge>
+                        </DialogTitle>
+                        <DialogDescription className="font-bold text-sm text-zinc-500 dark:text-zinc-400 flex justify-between items-center mt-3">
+                            <span className="bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-lg flex gap-2">
+                                Score: <strong className={selectedAttempt?.passed ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>{selectedAttempt?.score} / {selectedAttempt?.total_questions} ({selectedAttempt?.percentage}%)</strong>
+                            </span>
+                            <span className="flex items-center gap-1"><Clock size={14} className="text-zinc-400" /> {selectedAttempt && formatDate(selectedAttempt.created_at)}</span>
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="overflow-y-auto p-4 md:p-8 space-y-6 flex-1">
+                        {selectedAttempt?.questions?.map((q, qIdx) => (
+                            <div key={qIdx} className={`rounded-2xl border-2 shadow-sm bg-white dark:bg-zinc-900 ${q.is_correct ? 'border-emerald-100 dark:border-emerald-900/40' : 'border-red-100 dark:border-red-900/40'}`}>
+                                <div className={`p-5 md:p-6 border-b ${q.is_correct ? 'bg-emerald-50/50 border-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/20' : 'bg-red-50/50 border-red-50 dark:bg-red-950/20 dark:border-red-900/20'}`}>
+                                    <div className="flex items-start gap-3">
+                                        <div className="mt-1 shrink-0">
+                                            {q.is_correct ? <CheckCircle2 className="text-emerald-500" size={24} /> : <XCircle className="text-red-500" size={24} />}
+                                        </div>
+                                        <div className="w-full font-bold text-base md:text-lg text-zinc-800 dark:text-zinc-100">
+                                            <Markdown components={markdownComponents}>{q.question}</Markdown>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-5 md:p-6 space-y-4">
+                                    {q.is_correct ? (
+                                        <div className="flex flex-col text-sm font-medium">
+                                            <span className="text-emerald-600 dark:text-emerald-400 font-bold mb-1 tracking-wide uppercase text-[11px]">Correct Answer Selected</span>
+                                            <span className="text-zinc-700 dark:text-zinc-300 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800">{q.options[q.correct_index]}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="flex flex-col text-sm font-medium">
+                                                <span className="text-red-500 font-bold mb-1 tracking-wide uppercase text-[11px]">Your Answer</span>
+                                                <span className="text-zinc-500 p-3 bg-red-50/30 dark:bg-red-950/10 rounded-xl border border-red-100 dark:border-red-900/30 line-through decoration-red-300 dark:decoration-red-800/50">{q.options[q.selected_index] || "No answer provided"}</span>
+                                            </div>
+                                            <div className="flex flex-col text-sm font-medium">
+                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold mb-1 tracking-wide uppercase text-[11px]">Correct Answer</span>
+                                                <span className="text-zinc-700 dark:text-zinc-300 p-3 bg-emerald-50/30 dark:bg-emerald-950/10 rounded-xl border border-emerald-100 dark:border-emerald-900/30">{q.options[q.correct_index]}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {q.explanation && (
+                                        <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                                            <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                                <span className="text-blue-500 font-bold flex items-center gap-1.5 mb-2 text-sm"><Sparkles size={16}/> Knowledge Oracle Explanation:</span>
+                                                <div className="text-zinc-700 dark:text-zinc-300 prose prose-sm dark:prose-invert max-w-none [&_p]:mb-0">
+                                                    <Markdown components={markdownComponents}>{q.explanation}</Markdown>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {status !== 'Locked' ? (
                 <div className="p-6 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/80 dark:bg-zinc-900/80 mt-auto shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-10 sticky bottom-0">

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import Markdown from 'react-markdown';
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -14,11 +15,28 @@ const DEFAULT_PASS_THRESHOLD = 60;
 // Deduplicate concurrent requests (e.g. from React 18 Strict Mode double-mounting)
 const pendingQuizRequests = new Map();
 
+const markdownComponents = {
+    p: ({ node, ...props }) => <p className="mb-6 last:mb-0 inline-block w-full" {...props} />,
+    pre: ({ node, ...props }) => (
+        <pre className="mt-8 mb-8 text-left bg-zinc-900 text-zinc-100 border border-zinc-800 p-6 md:p-8 rounded-3xl shadow-2xl text-sm md:text-base font-medium font-mono overflow-x-auto w-full max-w-full" {...props} />
+    ),
+    code(props) {
+        const { children, className, node, ...rest } = props;
+        const match = /language-(\w+)/.exec(className || '');
+        const isBlock = match || String(children).includes('\n');
+        if (!isBlock) {
+            return <code className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-2 py-1 rounded-lg break-words" {...rest}>{children}</code>;
+        }
+        return <code className="bg-transparent text-inherit p-0 font-mono" {...rest}>{children}</code>;
+    }
+};
+
 export default function Quizzes() {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
     const { state } = location;
+    const scrollRef = useRef(null);
 
     const skillId = state?.skillId;
     const skillName = state?.skillName || "Functions";
@@ -29,6 +47,7 @@ export default function Quizzes() {
     // Quiz data
     const [questions, setQuestions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadingProgress, setLoadingProgress] = useState(0);
     const [error, setError] = useState(null);
     const [passThreshold, setPassThreshold] = useState(DEFAULT_PASS_THRESHOLD);
 
@@ -44,6 +63,18 @@ export default function Quizzes() {
 
     useEffect(() => {
         let isMounted = true;
+        let progressInterval;
+
+        const startFakeProgress = () => {
+            setLoadingProgress(0);
+            progressInterval = setInterval(() => {
+                setLoadingProgress(prev => {
+                    if (prev >= 98) return 98; // Cap at 98% until data completely arrives
+                    const increment = Math.max(0.5, (98 - prev) * 0.08); // slow down organically near the end
+                    return prev + increment;
+                });
+            }, 500);
+        };
         
         const fetchQuiz = async () => {
             if (!skillId) {
@@ -57,6 +88,8 @@ export default function Quizzes() {
                 return;
             }
             try {
+                startFakeProgress();
+
                 const reqKey = `${courseId}-${skillId}`;
                 let res;
                 if (pendingQuizRequests.has(reqKey)) {
@@ -92,21 +125,31 @@ export default function Quizzes() {
                         };
                     });
                     setQuestions(mapped);
+                    
+                    clearInterval(progressInterval);
+                    setLoadingProgress(100);
+                    // Leave it visibly at 100% just slightly before shifting state
+                    setTimeout(() => {
+                        if (isMounted) setIsLoading(false);
+                    }, 400);
                 } else {
+                    clearInterval(progressInterval);
                     setError("AI returned no questions. Please try again.");
+                    setIsLoading(false);
                 }
             } catch (err) {
                 if (!isMounted) return;
+                clearInterval(progressInterval);
                 console.error(err);
                 setError("The Knowledge Oracle is currently unavailable. Try again later.");
-            } finally {
-                if (isMounted) setIsLoading(false);
+                setIsLoading(false);
             }
         };
         fetchQuiz();
 
         return () => {
             isMounted = false;
+            clearInterval(progressInterval);
         };
     }, [courseTitle, skillName, skillId]);
 
@@ -139,6 +182,9 @@ export default function Quizzes() {
             setCurrentIndex(prev => prev + 1);
             setSelectedOption(null);
             setIsSubmitted(false);
+            if (scrollRef.current) {
+                scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+            }
         } else {
             // Last question — show results
             setShowResults(true);
@@ -207,12 +253,25 @@ export default function Quizzes() {
     // ────── LOADING ──────
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-full">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="animate-spin text-blue-500" size={48} />
-                    <p className="font-bold tracking-widest text-zinc-500 uppercase text-sm">Generating your adaptive quiz...</p>
-                    <p className="text-xs text-zinc-400">This may take a moment for {totalQuestions || 20} questions</p>
-                </div>
+            <div className="flex items-center justify-center h-full bg-zinc-50 dark:bg-zinc-950 p-6">
+                <Card className="max-w-md w-full p-8 md:p-10 text-center border-none shadow-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-3xl flex flex-col items-center gap-6">
+                    <div className="w-20 h-20 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 rounded-3xl flex items-center justify-center animate-pulse shadow-inner relative">
+                        <BrainCircuit size={40} className="relative z-10" />
+                        <Loader2 className="absolute inset-0 m-auto text-blue-300 dark:text-blue-700 opacity-50 animate-spin" size={60} strokeWidth={2} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl md:text-2xl font-black text-zinc-800 dark:text-zinc-100 mb-2">Generating Questions</h2>
+                        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Forging adaptive challenges for {skillName}...</p>
+                    </div>
+                    
+                    <div className="w-full flex flex-col gap-2 mt-2">
+                        <div className="flex justify-between items-center px-1">
+                            <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400">Creation Progress</span>
+                            <span className="text-xs font-black text-blue-600 dark:text-blue-400">{Math.floor(loadingProgress)}%</span>
+                        </div>
+                        <Progress value={loadingProgress} className="h-3 md:h-4 w-full bg-zinc-100 dark:bg-zinc-950 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-indigo-500 rounded-full shadow-inner" />
+                    </div>
+                </Card>
             </div>
         );
     }
@@ -327,7 +386,7 @@ export default function Quizzes() {
             </div>
 
             {/* Main Scrollable Content Area */}
-            <div className="flex-grow overflow-y-auto flex flex-col items-center px-4 md:px-8 pb-32">
+            <div ref={scrollRef} className="flex-grow overflow-y-auto flex flex-col items-center px-4 md:px-8 pb-32">
                 <div className="w-full max-w-4xl mx-auto flex flex-col flex-grow justify-center py-8 md:py-12 gap-8 md:gap-12">
                     
                     {/* The Question Area */}
@@ -336,9 +395,11 @@ export default function Quizzes() {
                             <ShieldAlert size={20} />
                             <span className="text-sm font-bold tracking-widest uppercase">Question {currentIndex + 1}</span>
                         </div>
-                        <pre className="text-2xl md:text-4xl font-extrabold whitespace-pre-wrap font-sans leading-snug md:leading-tight text-zinc-800 dark:text-zinc-100 max-w-3xl">
-                            {currentQuestion.question}
-                        </pre>
+                        <div className="w-full text-zinc-800 dark:text-zinc-100 max-w-3xl text-xl md:text-3xl font-extrabold leading-snug md:leading-tight text-left md:text-center mx-auto">
+                            <Markdown components={markdownComponents}>
+                                {currentQuestion.question}
+                            </Markdown>
+                        </div>
                     </div>
 
                     {/* The Feedback/Explanation Area (Middle) */}
@@ -355,9 +416,9 @@ export default function Quizzes() {
                                     <><XCircle size={28} className="text-red-500" /> Not quite</>
                                 )}
                             </div>
-                            <p className="leading-relaxed text-base md:text-lg font-medium opacity-90">
-                                {currentQuestion.explanation}
-                            </p>
+                            <div className="leading-relaxed opacity-90 text-sm font-medium prose dark:prose-invert">
+                                <Markdown components={markdownComponents}>{currentQuestion.explanation}</Markdown>
+                            </div>
                         </div>
                     )}
 

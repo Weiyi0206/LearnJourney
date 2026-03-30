@@ -87,20 +87,16 @@ def generate_quiz(req: QuizGenerateRequest, supabase: Client = Depends(get_supab
         
         INSTRUCTIONS:
         1. Generate exactly {num_questions} multiple-choice questions testing "{req.skill_name}".
-        2. COGNITIVE VARIETY: Map the questions across Bloom's Taxonomy:
-           - 30% Recall/Conceptual (Definitions, vocabulary)
-           - 40% Application (Predicting output, applying formulas/logic to a scenario)
-           - 30% Analysis/Debugging (Identifying errors, comparing approaches)
+        2. COGNITIVE VARIETY: Map the questions across Bloom's Taxonomy.
         3. PROGRESSIVE DIFFICULTY: Order the questions from easiest to hardest.
-        4. THE DISTRACTORS (CRITICAL): The 3 incorrect options MUST represent actual, common student misconceptions. Do NOT use obvious, silly, or joke answers.
-        5. THE EXPLANATION: Your explanation must not only state why the correct answer is right, but explicitly point out the specific misconception that leads to the incorrect distractors.
+        4. THE DISTRACTORS: The 3 incorrect options MUST represent actual, common student misconceptions. 
+        5. THE EXPLANATION (CONCISE): Keep the final explanation short and punchy (Max 2 sentences). Just directly state why the correct answer is right and briefly hint at the trap. Use your `reasoning` field to think out loud first!
         6. SCOPE LIMIT: Do NOT include topics that are more advanced than "{req.skill_name}".
-
-        Ensure all code snippets (if applicable to the subject) are properly formatted.
+        7. CODE FORMATTING: You MUST enclose ALL code snippets (in questions, options, or explanations) inside proper markdown triple-backticks (e.g. ```python ... ```). Do not rely on indentation.
         """
 
 # Manually define the unrolled schema to avoid Pydantic's $defs
-        quiz_schema = {
+        quiz_schema =  {
             "type": "object",
             "properties": {
                 "questions": {
@@ -109,6 +105,10 @@ def generate_quiz(req: QuizGenerateRequest, supabase: Client = Depends(get_supab
                     "items": {
                         "type": "object",
                         "properties": {
+                            "reasoning": {
+                                "type": "string",
+                                "description": "Your internal scratchpad. Do your math, plan the distractors, and think out loud here. The student will NOT see this."
+                            },
                             "question": {
                                 "type": "string",
                                 "description": "The multiple-choice question text."
@@ -124,10 +124,10 @@ def generate_quiz(req: QuizGenerateRequest, supabase: Client = Depends(get_supab
                             },
                             "explanation": {
                                 "type": "string",
-                                "description": "A pedagogical explanation of the correct answer."
+                                "description": "A very concise, 1-to-2 sentence explanation for the student. Do not ramble."
                             }
                         },
-                        "required": ["question", "options", "correct_index", "explanation"]
+                        "required":["reasoning", "question", "options", "correct_index", "explanation"]
                     }
                 }
             },
