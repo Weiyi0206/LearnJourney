@@ -99,8 +99,42 @@ def generate_quiz(req: QuizGenerateRequest, supabase: Client = Depends(get_supab
         Ensure all code snippets (if applicable to the subject) are properly formatted.
         """
 
-        quiz_schema = QuizQuestionList.model_json_schema()
-        model = GenerativeModel("gemini-2.5-pro") # use appropriate available vertex model
+# Manually define the unrolled schema to avoid Pydantic's $defs
+        quiz_schema = {
+            "type": "object",
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "description": "An array of distinct, non-repetitive quiz questions.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "question": {
+                                "type": "string",
+                                "description": "The multiple-choice question text."
+                            },
+                            "options": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Exactly 4 options. 1 correct, 3 plausible distractors."
+                            },
+                            "correct_index": {
+                                "type": "integer",
+                                "description": "Integer 0-3 representing the correct option index."
+                            },
+                            "explanation": {
+                                "type": "string",
+                                "description": "A pedagogical explanation of the correct answer."
+                            }
+                        },
+                        "required": ["question", "options", "correct_index", "explanation"]
+                    }
+                }
+            },
+            "required": ["questions"]
+        }
+
+        model = GenerativeModel("gemini-2.5-pro") 
         response = model.generate_content(
             prompt,
             generation_config=GenerationConfig(
@@ -110,13 +144,23 @@ def generate_quiz(req: QuizGenerateRequest, supabase: Client = Depends(get_supab
             )
         )
 
-        data = json.loads(response.text)
+        text = response.text.strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        
+        data = json.loads(text.strip())
         data["pass_threshold"] = pass_threshold
         return data
 
     except Exception as e:
         print(f"Gemini API Error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate adaptive quiz from AI.")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate adaptive quiz from AI. Error: {str(e)}")
 
 
 # ── Quiz Submission & History ──

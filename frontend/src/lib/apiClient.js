@@ -182,7 +182,7 @@ export const StudentService = {
 };
 
 export const QuizService = {
-    generateQuiz: async ({ courseTitle, skillName, skillId, courseId, numQuestions = 20, masteredPrerequisites = [] }) => {
+    generateQuiz: async ({ courseTitle, skillName, skillId, courseId, numQuestions = 20, masteredPrerequisites = [], signal }) => {
         try {
             const response = await client.post('/api/quiz/generate', {
                 course_title: courseTitle,
@@ -191,7 +191,7 @@ export const QuizService = {
                 course_id: courseId,
                 num_questions: numQuestions,
                 mastered_prerequisites: masteredPrerequisites
-            });
+            }, { signal });
             return response.data;
         } catch (error) {
             console.error('Error generating quiz:', error);

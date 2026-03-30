@@ -11,6 +11,9 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const DEFAULT_PASS_THRESHOLD = 60;
 
+// Deduplicate concurrent requests (e.g. from React 18 Strict Mode double-mounting)
+const pendingQuizRequests = new Map();
+
 export default function Quizzes() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -40,6 +43,8 @@ export default function Quizzes() {
     const [showCelebration, setShowCelebration] = useState(false);
 
     useEffect(() => {
+        let isMounted = true;
+        
         const fetchQuiz = async () => {
             if (!skillId) {
                 setError("No topic selected. Return to the course map and try again.");
@@ -52,13 +57,26 @@ export default function Quizzes() {
                 return;
             }
             try {
-                const res = await QuizService.generateQuiz({
-                    courseTitle,
-                    skillName,
-                    skillId,
-                    courseId,
-                    masteredPrerequisites
-                });
+                const reqKey = `${courseId}-${skillId}`;
+                let res;
+                if (pendingQuizRequests.has(reqKey)) {
+                    res = await pendingQuizRequests.get(reqKey);
+                } else {
+                    const promise = QuizService.generateQuiz({
+                        courseTitle,
+                        skillName,
+                        skillId,
+                        courseId,
+                        masteredPrerequisites
+                    }).finally(() => {
+                        pendingQuizRequests.delete(reqKey);
+                    });
+                    pendingQuizRequests.set(reqKey, promise);
+                    res = await promise;
+                }
+                
+                if (!isMounted) return;
+
                 if (res?.questions?.length > 0) {
                     if (res.pass_threshold) setPassThreshold(res.pass_threshold);
                     const mapped = res.questions.map((q, qi) => {
@@ -78,13 +96,18 @@ export default function Quizzes() {
                     setError("AI returned no questions. Please try again.");
                 }
             } catch (err) {
+                if (!isMounted) return;
                 console.error(err);
                 setError("The Knowledge Oracle is currently unavailable. Try again later.");
             } finally {
-                setIsLoading(false);
+                if (isMounted) setIsLoading(false);
             }
         };
         fetchQuiz();
+
+        return () => {
+            isMounted = false;
+        };
     }, [courseTitle, skillName, skillId]);
 
     const currentQuestion = questions[currentIndex];
@@ -265,59 +288,96 @@ export default function Quizzes() {
     const progressPercent = totalQuestions > 0 ? Math.round(((currentIndex) / totalQuestions) * 100) : 0;
 
     return (
-        <div className="p-4 md:p-8 h-full overflow-auto max-w-7xl mx-auto flex flex-col gap-6">
-            {/* Header */}
-            <Card className="flex items-center p-6 border-zinc-200/60 dark:border-zinc-800 bg-gradient-to-r from-blue-500/10 to-indigo-500/5 backdrop-blur-md shadow-sm border-none">
-                <div className="flex-1 flex items-center justify-between">
+        <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden">
+            {/* Header Fixed Area */}
+            <div className="flex-shrink-0 px-4 pt-4 md:px-8 md:pt-8 bg-zinc-50 dark:bg-zinc-950 z-10 w-full max-w-7xl mx-auto">
+                <Card className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 md:p-6 gap-5 md:gap-6 border-zinc-200/60 dark:border-zinc-800 bg-gradient-to-r from-blue-500/10 to-indigo-500/5 backdrop-blur-md shadow-sm border-none">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center shadow-inner">
-                            <BrainCircuit size={28} />
+                        <div className="w-12 h-12 md:w-14 md:h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center shadow-inner shrink-0">
+                            <BrainCircuit size={24} className="md:w-7 md:h-7" />
                         </div>
                         <div>
-                            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">Knowledge Check</h1>
-                            <p className="text-sm md:text-base font-medium text-blue-600/80 mt-0.5 flex items-center gap-2">
-                                <Sparkles size={16} /> {skillName} — Question {currentIndex + 1} of {totalQuestions}
+                            <h1 className="text-xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">Knowledge Check</h1>
+                            <p className="text-xs md:text-base font-medium text-blue-600/80 mt-0.5 flex items-center gap-2">
+                                <Sparkles size={14} className="md:w-4 md:h-4" /> {skillName} — Question {currentIndex + 1} of {totalQuestions}
                             </p>
                         </div>
                     </div>
-                    <div className="hidden md:flex flex-col items-end gap-1 min-w-[180px]">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Progress</span>
+                    
+                    <div className="flex flex-col gap-3 w-full md:w-auto md:min-w-[240px]">
+                        <div className="flex items-center justify-between text-xs md:text-sm font-bold bg-white/50 dark:bg-zinc-900/50 p-2 md:p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            <div className="flex flex-col items-center flex-1">
+                                <span className="text-[9px] uppercase tracking-widest text-zinc-400">Live Score</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 text-sm md:text-base">{score}</span>
+                            </div>
+                            <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800"></div>
+                            <div className="flex flex-col items-center flex-1">
+                                <span className="text-[9px] uppercase tracking-widest text-zinc-400">To Pass</span>
+                                <span className="text-blue-600 dark:text-blue-400 text-sm md:text-base">{Math.ceil((passThreshold / 100) * totalQuestions)}</span>
+                            </div>
+                            <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 hidden md:block"></div>
+                            <div className="flex-col items-center flex-1 hidden md:flex">
+                                <span className="text-[9px] uppercase tracking-widest text-zinc-400">Progress</span>
+                                <span className="text-zinc-600 dark:text-zinc-300 text-sm md:text-base">{progressPercent}%</span>
+                            </div>
+                        </div>
                         <Progress value={progressPercent} className="h-2 w-full bg-zinc-200 dark:bg-zinc-800 [&>div]:bg-blue-500 rounded-full" />
                     </div>
-                </div>
-            </Card>
+                </Card>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 min-h-[500px]">
-                {/* Question Block */}
-                <Card className="col-span-1 md:col-span-2 border-zinc-200/60 dark:border-zinc-800 shadow-xl flex flex-col overflow-hidden">
-                    <CardHeader className="bg-zinc-50 border-b border-zinc-100 dark:bg-zinc-950 dark:border-zinc-900 pb-4">
-                        <div className="flex gap-2 items-center">
-                            <ShieldAlert size={18} className="text-zinc-500" />
-                            <h2 className="text-sm font-bold tracking-widest uppercase text-zinc-500">Question {currentIndex + 1}</h2>
+            {/* Main Scrollable Content Area */}
+            <div className="flex-grow overflow-y-auto flex flex-col items-center px-4 md:px-8 pb-32">
+                <div className="w-full max-w-4xl mx-auto flex flex-col flex-grow justify-center py-8 md:py-12 gap-8 md:gap-12">
+                    
+                    {/* The Question Area */}
+                    <div className="w-full flex flex-col items-center text-center gap-4">
+                        <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500">
+                            <ShieldAlert size={20} />
+                            <span className="text-sm font-bold tracking-widest uppercase">Question {currentIndex + 1}</span>
                         </div>
-                    </CardHeader>
-                    <CardContent className="pt-8 flex-grow">
-                        <pre className="text-lg md:text-xl font-medium whitespace-pre-wrap font-sans leading-relaxed text-zinc-800 dark:text-zinc-200">
+                        <pre className="text-2xl md:text-4xl font-extrabold whitespace-pre-wrap font-sans leading-snug md:leading-tight text-zinc-800 dark:text-zinc-100 max-w-3xl">
                             {currentQuestion.question}
                         </pre>
-                    </CardContent>
-                </Card>
+                    </div>
 
-                {/* Options + Submit */}
-                <div className="col-span-1 flex flex-col gap-6 h-full">
-                    <Card className="flex-grow border-zinc-200/60 dark:border-zinc-800 shadow-lg p-6 flex flex-col gap-3 bg-zinc-50/50 dark:bg-zinc-950">
-                        <div className="text-sm font-bold tracking-widest uppercase text-zinc-500 mb-1">Select Answer</div>
+                    {/* The Feedback/Explanation Area (Middle) */}
+                    {isSubmitted && (
+                        <div className={`w-full p-6 md:p-8 rounded-3xl animate-in fade-in slide-in-from-bottom-4 shadow-xl border-2 ${
+                            selectedOption === currentQuestion.correctAnswer
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-950 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-50"
+                                : "bg-red-50 border-red-200 text-red-950 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-50"
+                        }`}>
+                            <div className="flex items-center gap-3 font-black text-2xl mb-3">
+                                {selectedOption === currentQuestion.correctAnswer ? (
+                                    <><CheckCircle size={28} className="text-emerald-500" /> Outstanding!</>
+                                ) : (
+                                    <><XCircle size={28} className="text-red-500" /> Not quite</>
+                                )}
+                            </div>
+                            <p className="leading-relaxed text-base md:text-lg font-medium opacity-90">
+                                {currentQuestion.explanation}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* The Options Area (2x2 Grid) */}
+                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-auto">
                         {currentQuestion.options.map((option) => {
                             const isSelected = selectedOption === option.id;
                             const isCorrectRow = isSubmitted && option.id === currentQuestion.correctAnswer;
                             const isWrongRow = isSubmitted && isSelected && option.id !== currentQuestion.correctAnswer;
 
-                            let style = "py-5 text-base justify-start px-5 font-bold border-2 transition-all text-left whitespace-normal h-auto rounded-xl";
+                            let style = "py-6 md:py-8 text-lg justify-start px-6 font-bold border-2 transition-all text-left whitespace-normal h-auto rounded-3xl min-h-[100px]";
 
-                            if (isSelected && !isSubmitted) style += " border-blue-500 bg-blue-50/50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shadow-md";
-                            else if (isCorrectRow) style += " border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 shadow-md";
+                            if (isSelected && !isSubmitted) style += " border-blue-500 bg-blue-50/80 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shadow-[0_0_0_4px_rgba(59,130,246,0.1)] scale-[1.02] z-10";
+                            else if (isCorrectRow) style += " border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 shadow-lg scale-[1.02] z-10";
                             else if (isWrongRow) style += " border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300 shadow-md";
-                            else style += " border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300";
+                            else style += " border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:scale-[1.01]";
+
+                            if (isSubmitted && !isCorrectRow && !isWrongRow) {
+                                style += " opacity-50 grayscale hover:scale-100 hover:bg-white dark:hover:bg-zinc-900 hover:border-zinc-200 dark:hover:border-zinc-800";
+                            }
 
                             return (
                                 <Button
@@ -327,54 +387,55 @@ export default function Quizzes() {
                                     onClick={() => handleSelect(option.id)}
                                     disabled={isSubmitted}
                                 >
-                                    <span className={`w-7 h-7 flex items-center justify-center rounded-lg mr-3 text-xs tracking-wider uppercase flex-shrink-0 transition-colors
+                                    <span className={`w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl mr-4 md:mr-5 text-sm md:text-base font-black tracking-wider uppercase flex-shrink-0 transition-colors
                                         ${(isSelected && !isSubmitted) ? "bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200" :
-                                            isCorrectRow ? "bg-emerald-200 text-emerald-800" :
-                                                isWrongRow ? "bg-red-200 text-red-800" :
-                                                    "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
+                                            isCorrectRow ? "bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100" :
+                                                isWrongRow ? "bg-red-200 text-red-900 dark:bg-red-800 dark:text-red-100" :
+                                                    "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
                                         }`}>
                                         {option.id}
                                     </span>
-                                    {option.text}
+                                    <span className="leading-snug">{option.text}</span>
                                 </Button>
                             );
                         })}
-                    </Card>
+                    </div>
+                </div>
+            </div>
 
-                    {/* Submit / Feedback */}
-                    <Card className="border-zinc-200/60 dark:border-zinc-800 shadow-lg p-1 bg-white dark:bg-zinc-950 overflow-hidden shrink-0 min-h-[120px] flex flex-col justify-center">
-                        {!isSubmitted ? (
-                            <div className="p-4">
-                                <Button size="lg" className="w-full h-14 text-lg font-bold gap-3 rounded-xl hover:-translate-y-0.5 transition-transform shadow-xl" onClick={handleSubmit} disabled={!selectedOption}>
-                                    Submit Answer <Send size={18} />
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className={`p-5 rounded-xl flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 ${selectedOption === currentQuestion.correctAnswer
-                                ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100"
-                                : "bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-100"
-                                }`}>
-                                <div className="flex items-center gap-2 font-bold">
-                                    {selectedOption === currentQuestion.correctAnswer ? (
-                                        <><CheckCircle size={18} className="text-emerald-500" /> Correct!</>
-                                    ) : (
-                                        <><XCircle size={18} className="text-red-500" /> Incorrect</>
-                                    )}
-                                </div>
-                                <p className="leading-relaxed opacity-90 text-xs font-medium">{currentQuestion.explanation}</p>
-                                <Button
-                                    className="w-full mt-1 font-bold rounded-xl gap-2 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
-                                    onClick={handleNext}
-                                >
-                                    {currentIndex < totalQuestions - 1 ? (
-                                        <>Next Question <ChevronRight size={16} /></>
-                                    ) : (
-                                        <>View Results <Trophy size={16} /></>
-                                    )}
-                                </Button>
-                            </div>
-                        )}
-                    </Card>
+            {/* Bottom Anchored Action Bar */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-200/60 dark:border-zinc-800/60 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.1)] z-20">
+                <div className="w-full max-w-4xl mx-auto flex justify-end">
+                    {!isSubmitted ? (
+                        <Button 
+                            size="lg" 
+                            className={`w-full md:w-auto md:min-w-[320px] h-14 md:h-16 text-xl font-black rounded-2xl transition-all shadow-xl ${
+                                selectedOption 
+                                    ? "bg-zinc-900 text-white hover:bg-zinc-800 hover:-translate-y-1 hover:shadow-2xl dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 dark:hover:shadow-white/20" 
+                                    : "bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-600 cursor-not-allowed border-none shadow-none"
+                            }`} 
+                            onClick={handleSubmit} 
+                            disabled={!selectedOption}
+                        >
+                            Check Answer
+                        </Button>
+                    ) : (
+                        <Button
+                            size="lg"
+                            className={`w-full md:w-auto md:min-w-[320px] h-14 md:h-16 text-xl font-black gap-3 rounded-2xl hover:-translate-y-1 transition-all shadow-xl ${
+                                selectedOption === currentQuestion.correctAnswer 
+                                    ? "bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-emerald-500/30 dark:bg-emerald-500 dark:hover:bg-emerald-400" 
+                                    : "bg-red-600 text-white hover:bg-red-700 hover:shadow-red-500/30 dark:bg-red-500 dark:hover:bg-red-400"
+                            }`}
+                            onClick={handleNext}
+                        >
+                            {currentIndex < totalQuestions - 1 ? (
+                                <>Continue <ChevronRight size={24} /></>
+                            ) : (
+                                <>View Results <Trophy size={24} /></>
+                            )}
+                        </Button>
+                    )}
                 </div>
             </div>
 
