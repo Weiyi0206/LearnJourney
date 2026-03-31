@@ -26,6 +26,7 @@ import EducatorNodePanel from "@/components/graph/EducatorNodePanel";
 import StudentNodePanel from "@/components/graph/StudentNodePanel";
 import CurriculumGraphEditor from "@/components/graph/CurriculumGraphEditor";
 import NodeEditorSheet from "@/components/graph/NodeEditorSheet";
+import DiagnosticWizard from "@/components/diagnostic/DiagnosticWizard";
 
 export default function CourseView() {
     const navigate = useNavigate();
@@ -60,6 +61,8 @@ export default function CourseView() {
     const [coursePassThreshold, setCoursePassThreshold] = useState(70);
     const [courseVisibility, setCourseVisibility] = useState('public');
     const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+    const [showDiagnosticWizard, setShowDiagnosticWizard] = useState(false);
 
     const [isUnenrollDialogOpen, setIsUnenrollDialogOpen] = useState(false);
     const [isUnenrolling, setIsUnenrolling] = useState(false);
@@ -235,6 +238,7 @@ export default function CourseView() {
         try {
             await StudentService.enroll(user.id, courseId);
             await fetchGraph(); // Refresh to populate nodes and progress mapping
+            setShowDiagnosticWizard(true);
         } catch (err) {
             console.error("Failed to enroll", err);
             alert("Failed to enroll: " + (err.response?.data?.detail || err.message));
@@ -751,6 +755,20 @@ export default function CourseView() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Diagnostic Wizard Overlay */}
+            {showDiagnosticWizard && (
+                <div className="fixed inset-0 z-[100] bg-zinc-50 dark:bg-zinc-950 animate-in fade-in duration-300">
+                    <DiagnosticWizard 
+                        courseId={courseId} 
+                        studentId={user.id} 
+                        onComplete={() => {
+                            setShowDiagnosticWizard(false);
+                            fetchGraph(); // Let them see their updated progress
+                        }} 
+                    />
+                </div>
+            )}
         </div>
     );
 }
