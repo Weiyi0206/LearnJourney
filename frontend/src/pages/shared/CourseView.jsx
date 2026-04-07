@@ -65,7 +65,9 @@ export default function CourseView() {
     const [showDiagnosticWizard, setShowDiagnosticWizard] = useState(false);
 
     const [isUnenrollDialogOpen, setIsUnenrollDialogOpen] = useState(false);
+    const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
     const [isUnenrolling, setIsUnenrolling] = useState(false);
+    const [isSkipping, setIsSkipping] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [copiedLink, setCopiedLink] = useState(false);
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -232,18 +234,31 @@ export default function CourseView() {
         setIsSheetOpen(false);
     }, []);
 
-    const handleEnroll = async () => {
+    const handleEnroll = () => {
         if (!user?.id) return;
-        setIsEnrolling(true);
+        setIsEnrollDialogOpen(true);
+    };
+
+    const confirmEnrollment = async (takeDiagnostic) => {
+        if (takeDiagnostic) {
+            setIsEnrolling(true);
+        } else {
+            setIsSkipping(true);
+        }
+        
         try {
             await StudentService.enroll(user.id, courseId);
+            setIsEnrollDialogOpen(false);
             await fetchGraph(); // Refresh to populate nodes and progress mapping
-            setShowDiagnosticWizard(true);
+            if (takeDiagnostic) {
+                setShowDiagnosticWizard(true);
+            }
         } catch (err) {
             console.error("Failed to enroll", err);
             alert("Failed to enroll: " + (err.response?.data?.detail || err.message));
         } finally {
             setIsEnrolling(false);
+            setIsSkipping(false);
         }
     };
 
@@ -321,7 +336,7 @@ export default function CourseView() {
                     {!isEducator && !isEnrolled && (
                         <Button
                             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 h-10 rounded-xl transition-all shadow-md"
-                            onClick={handleEnroll}
+                            onClick={() => handleEnroll()}
                             disabled={isEnrolling}
                         >
                             {isEnrolling ? <Loader2 size={16} className="mr-2 animate-spin" /> : 'Enroll Now'}
@@ -570,6 +585,37 @@ export default function CourseView() {
                             disabled={isUnenrolling}
                         >
                             {isUnenrolling ? <Loader2 size={18} className="mr-2 animate-spin" /> : "Yes, Unenroll"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Enrollment Confirmation / Diagnostic Prompt Dialog */}
+            <Dialog open={isEnrollDialogOpen} onOpenChange={setIsEnrollDialogOpen}>
+                <DialogContent className="sm:max-w-md rounded-[2rem] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 p-8 z-[100]">
+                    <DialogHeader>
+                        <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest mb-2"><BrainCircuit size={14} /> Diagnostic Assessment</div>
+                        <DialogTitle className="text-2xl font-extrabold">Take a Placement Test?</DialogTitle>
+                        <DialogDescription className="text-base font-medium text-zinc-500 mt-2 leading-relaxed">
+                            Before jumping in, do you want to take a quick <span className="relative group inline-block text-indigo-600 dark:text-indigo-400 font-bold border-b border-indigo-500/50 cursor-help">diagnostic assessment<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-zinc-900 text-white text-xs rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl font-medium leading-relaxed">A smart assessment that identifies your current skill level, automatically bypassing topics you already know to save you time.</div></span>? 
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter className="flex flex-col sm:flex-row gap-3 mt-8">
+                        <Button
+                            variant="ghost"
+                            className="flex-1 font-bold rounded-xl h-12 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                            onClick={() => confirmEnrollment(false)}
+                            disabled={isEnrolling || isSkipping}
+                        >
+                            {isSkipping ? <Loader2 size={18} className="mr-2 animate-spin" /> : "Skip, start from scratch"}
+                        </Button>
+                        <Button
+                            className="flex-1 font-bold h-12 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 rounded-xl"
+                            onClick={() => confirmEnrollment(true)}
+                            disabled={isEnrolling || isSkipping}
+                        >
+                            {isEnrolling ? <Loader2 size={18} className="mr-2 animate-spin" /> : "Yes, test me!"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

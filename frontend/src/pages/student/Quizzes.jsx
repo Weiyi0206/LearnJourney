@@ -31,6 +31,22 @@ const markdownComponents = {
     }
 };
 
+const markdownOptionComponents = {
+    p: ({ node, ...props }) => <p className="mb-0 inline-block w-full" {...props} />,
+    pre: ({ node, ...props }) => (
+        <pre className="mt-2 mb-2 text-left bg-zinc-900 text-zinc-100 border border-zinc-800 p-3 rounded-xl text-xs font-mono overflow-x-auto w-full max-w-full" {...props} />
+    ),
+    code(props) {
+        const { children, className, node, ...rest } = props;
+        const match = /language-(\w+)/.exec(className || '');
+        const isBlock = match || String(children).includes('\n');
+        if (!isBlock) {
+            return <code className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1 py-0.5 rounded text-xs" {...rest}>{children}</code>;
+        }
+        return <code className="bg-transparent text-inherit p-0 font-mono" {...rest}>{children}</code>;
+    }
+};
+
 export default function Quizzes() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -328,14 +344,9 @@ export default function Quizzes() {
                                 Return to Knowledge Map
                             </Button>
                         ) : (
-                            <>
-                                <Button className="w-full py-6 text-lg font-bold bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-xl shadow-xl gap-2" onClick={() => window.location.reload()}>
-                                    <RotateCcw size={18} /> Retry Quiz
-                                </Button>
-                                <Button variant="outline" className="w-full py-4 font-bold rounded-xl" onClick={handleReturn}>
-                                    Back to Path
-                                </Button>
-                            </>
+                            <Button className="w-full py-6 text-lg font-bold bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-xl shadow-xl" onClick={handleReturn}>
+                                Return to Knowledge Map
+                            </Button>
                         )}
                     </div>
                 </Card>
@@ -456,7 +467,9 @@ export default function Quizzes() {
                                         }`}>
                                         {option.id}
                                     </span>
-                                    <span className="leading-snug whitespace-pre-wrap text-left">{option.text}</span>
+                                    <span className="leading-snug whitespace-pre-wrap text-left flex-1">
+                                        <Markdown components={markdownOptionComponents}>{option.text}</Markdown>
+                                    </span>
                                 </Button>
                             );
                         })}

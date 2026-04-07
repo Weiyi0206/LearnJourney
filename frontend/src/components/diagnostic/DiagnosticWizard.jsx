@@ -23,6 +23,22 @@ const markdownComponents = {
     }
 };
 
+const markdownOptionComponents = {
+    p: ({ node, ...props }) => <p className="mb-0 inline-block w-full" {...props} />,
+    pre: ({ node, ...props }) => (
+        <pre className="mt-2 mb-2 text-left bg-zinc-900 text-zinc-100 border border-zinc-800 p-3 rounded-xl text-xs font-mono overflow-x-auto w-full max-w-full" {...props} />
+    ),
+    code(props) {
+        const { children, className, node, ...rest } = props;
+        const match = /language-(\w+)/.exec(className || '');
+        const isBlock = match || String(children).includes('\n');
+        if (!isBlock) {
+            return <code className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1 py-0.5 rounded text-xs" {...rest}>{children}</code>;
+        }
+        return <code className="bg-transparent text-inherit p-0 font-mono" {...rest}>{children}</code>;
+    }
+};
+
 const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
   const [step, setStep] = useState('intro'); // 'intro', 'loading', 'quiz', 'review'
   const scrollRef = useRef(null);
@@ -330,15 +346,23 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
 
                   <div className="flex flex-col gap-3">
                       {hasNextPhase ? (
-                          <Button 
-                              className="w-full py-7 text-xl font-bold bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-2xl shadow-xl transition-all"
-                              onClick={() => {
-                                  setCurrentPhase(prev => prev + 1);
-                                  fetchNextPhase();
-                              }}
-                          >
-                              Engage Phase {currentPhase + 1} <ChevronRight className="ml-2" />
-                          </Button>
+                          <>
+                              <Button 
+                                  className="w-full py-7 text-xl font-bold bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-2xl shadow-xl transition-all"
+                                  onClick={() => {
+                                      setCurrentPhase(prev => prev + 1);
+                                      fetchNextPhase();
+                                  }}
+                              >
+                                  Engage Phase {currentPhase + 1} <ChevronRight className="ml-2" />
+                              </Button>
+                              <Button variant="ghost" className="w-full py-6 text-sm font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-2xl transition-colors" onClick={() => {
+                                  confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+                                  setTimeout(onComplete, 1200);
+                              }}>
+                                  Stop Testing & Enter Course
+                              </Button>
+                          </>
                       ) : (
                           <Button className="w-full py-7 text-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-xl" onClick={() => {
                               confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
@@ -436,7 +460,9 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
                                           }`}>
                                           {optionId}
                                       </span>
-                                      <span className="leading-snug whitespace-pre-wrap text-left">{option}</span>
+                                      <span className="leading-snug whitespace-pre-wrap text-left flex-1">
+                                          <Markdown components={markdownOptionComponents}>{option}</Markdown>
+                                      </span>
                                   </Button>
                               );
                           })}
