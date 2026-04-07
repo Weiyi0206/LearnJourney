@@ -3,7 +3,7 @@ import Markdown from 'react-markdown';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, ArrowRight, BrainCircuit, Sparkles, CheckCircle, XCircle, Compass, ShieldAlert, ChevronRight, Trophy, Target } from 'lucide-react';
+import { Loader2, ArrowRight, BrainCircuit, Sparkles, CheckCircle, XCircle, Compass, ShieldAlert, ChevronRight, Trophy, Target, Zap, Network } from 'lucide-react';
 import client from '@/lib/apiClient';
 import confetti from "canvas-confetti";
 
@@ -31,7 +31,6 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [answers, setAnswers] = useState([]);
   const [reviewSummary, setReviewSummary] = useState(null);
   const [hasNextPhase, setHasNextPhase] = useState(true);
@@ -64,6 +63,7 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
       setTimeout(() => {
           if (!data.has_next_phase) {
             setHasNextPhase(false);
+            setReviewSummary(null);
             if (currentPhase === 1) {
                 // If the very first phase has nothing to unlock, just finish
                 onComplete();
@@ -77,7 +77,7 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
           setAnswers([]);
           setCurrentQuestionIndex(0);
           setSelectedOption(null);
-          setIsSubmitted(false);
+          setSelectedOption(null);
           setStep('quiz');
       }, 400);
 
@@ -105,6 +105,9 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
 
       setTimeout(() => {
           setReviewSummary(data.summary);
+          if (data.has_next_phase !== undefined) {
+              setHasNextPhase(data.has_next_phase);
+          }
           setStep('review');
       }, 400);
 
@@ -121,23 +124,18 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
 
     const currentQ = questions[currentQuestionIndex];
     
-    if (!isSubmitted) {
-        setIsSubmitted(true);
-        const isCorrect = selectedOption === currentQ.correct_index;
-        const newAnswers = [...answers, { skill_id: currentQ.skill_id, is_correct: isCorrect }];
-        setAnswers(newAnswers);
-        return;
-    }
+    const isCorrect = selectedOption === currentQ.correct_index;
+    const newAnswers = [...answers, { skill_id: currentQ.skill_id, is_correct: isCorrect }];
+    setAnswers(newAnswers);
 
     if (currentQuestionIndex + 1 < questions.length) {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedOption(null);
-      setIsSubmitted(false);
       if (scrollRef.current) {
           scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
       }
     } else {
-      submitPhase(answers);
+      submitPhase(newAnswers);
     }
   };
 
@@ -154,14 +152,46 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
                       <h2 className="text-3xl font-black text-zinc-900 dark:text-zinc-100 mb-4 tracking-tight">
                           Find your starting point
                       </h2>
-                      <p className="text-base font-medium text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                      <p className="text-base font-medium text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed mb-8">
                           We will systematically evaluate your existing knowledge phase-by-phase so you can jump straight to learning!
                       </p>
+                      
+                      <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 mb-2 text-left space-y-5">
+                          <div className="flex items-start gap-4">
+                              <div className="mt-1 flex-shrink-0 bg-amber-100 dark:bg-amber-900/30 p-2 rounded-xl">
+                                  <Zap className="text-amber-500" size={20} />
+                              </div>
+                              <div>
+                                  <h4 className="font-bold text-zinc-900 dark:text-zinc-100">Save Time</h4>
+                                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">We'll test you on foundational concepts first. If you know them, you'll instantly bypass them on your learning map.</p>
+                              </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-4">
+                              <div className="mt-1 flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 p-2 rounded-xl">
+                                  <BrainCircuit className="text-blue-500" size={20} />
+                              </div>
+                              <div>
+                                  <h4 className="font-bold text-zinc-900 dark:text-zinc-100">Fast-Paced Phases</h4>
+                                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">You'll answer 3 quick questions per topic. To keep things moving, you won't see immediate feedback until the phase ends.</p>
+                              </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-4">
+                              <div className="mt-1 flex-shrink-0 bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-xl">
+                                  <Network className="text-emerald-500" size={20} />
+                              </div>
+                              <div>
+                                  <h4 className="font-bold text-zinc-900 dark:text-zinc-100">Adaptive Path</h4>
+                                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Passing a phase unlocks the next level of difficulty. The test ends naturally when you reach your learning frontier.</p>
+                              </div>
+                          </div>
+                      </div>
                   </div>
                   <Button 
                       size="lg" 
                       onClick={fetchNextPhase}
-                      className="mt-6 h-14 w-full text-lg rounded-2xl px-8 shadow-xl bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 transition-all font-bold group"
+                      className="h-14 w-full text-lg rounded-2xl px-8 shadow-xl bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 transition-all font-bold group mt-2"
                   >
                       Begin Assessment <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
@@ -172,7 +202,7 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
 
   if (step === 'loading') {
       return (
-          <div className="flex items-center justify-center w-full h-full bg-zinc-50 dark:bg-zinc-950 p-6 absolute inset-0 z-50">
+          <div className="flex items-center justify-center w-full h-full bg-zinc-50 dark:bg-zinc-950 p-6">
               <Card className="max-w-md w-full p-8 md:p-10 text-center border-none shadow-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-3xl flex flex-col items-center gap-6">
                   <div className="w-20 h-20 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 rounded-3xl flex items-center justify-center animate-pulse shadow-inner relative">
                       <BrainCircuit size={40} className="relative z-10" />
@@ -184,7 +214,7 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
                   </div>
                   <div className="w-full flex flex-col gap-2 mt-2">
                       <div className="flex justify-between items-center px-1">
-                          <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400">Network Progress</span>
+                          <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400">Loading...</span>
                           <span className="text-xs font-black text-blue-600 dark:text-blue-400">{Math.floor(loadingProgress)}%</span>
                       </div>
                       <Progress value={loadingProgress} className="h-3 md:h-4 w-full bg-zinc-100 dark:bg-zinc-950 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-indigo-500 rounded-full shadow-inner" />
@@ -238,15 +268,26 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
                               <CheckCircle size={14} /> Mastered
                           </h4>
                           {reviewSummary.passed.length > 0 ? (
-                              <ul className="space-y-2 flex-grow">
+                              <ul className="space-y-3 flex-grow mt-2">
                                   {reviewSummary.passed.map((s, i) => (
-                                      <li key={i} className="text-emerald-900 dark:text-emerald-200 font-bold text-lg leading-tight flex items-start gap-2">
-                                          <span className="text-emerald-400 mt-1 flex-shrink-0">•</span> <span>{s}</span>
+                                      <li key={i} className="text-emerald-900 dark:text-emerald-200 font-bold text-lg leading-tight flex items-center justify-between gap-2 bg-emerald-100/50 dark:bg-emerald-900/30 p-3 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50">
+                                          <div className="flex items-center gap-3">
+                                              <CheckCircle size={18} className="text-emerald-500" /> 
+                                              <span>{s.name || s}</span>
+                                          </div>
+                                          {(s.correct !== undefined && s.total !== undefined) && (
+                                              <span className="text-sm font-black bg-emerald-200 dark:bg-emerald-800 px-2.5 py-1 rounded-lg text-emerald-800 dark:text-emerald-200 shadow-sm">
+                                                  {s.correct}/{s.total}
+                                              </span>
+                                          )}
                                       </li>
                                   ))}
                               </ul>
                           ) : (
-                              <p className="text-emerald-700/50 dark:text-emerald-400/50 italic font-medium">None validated</p>
+                              <div className="flex flex-col items-center justify-center flex-grow opacity-70 mt-4 mb-4">
+                                  <ShieldAlert size={36} className="text-emerald-600/50 dark:text-emerald-400/50 mb-3" />
+                                  <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 text-center">No concepts fully mastered<br/>in this phase.</p>
+                              </div>
                           )}
                       </div>
                       
@@ -255,15 +296,26 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
                               <Sparkles size={14} /> Needs Review
                           </h4>
                           {reviewSummary.failed.length > 0 ? (
-                              <ul className="space-y-2 flex-grow">
+                              <ul className="space-y-3 flex-grow mt-2">
                                   {reviewSummary.failed.map((s, i) => (
-                                      <li key={i} className="text-amber-900 dark:text-amber-200 font-bold text-lg leading-tight flex items-start gap-2">
-                                          <span className="text-amber-400 mt-1 flex-shrink-0">•</span> <span>{s}</span>
+                                      <li key={i} className="text-amber-900 dark:text-amber-200 font-bold text-lg leading-tight flex items-center justify-between gap-2 bg-amber-100/50 dark:bg-amber-900/30 p-3 rounded-xl border border-amber-200/50 dark:border-amber-800/50">
+                                          <div className="flex items-center gap-3">
+                                              <XCircle size={18} className="text-amber-500" /> 
+                                              <span>{s.name || s}</span>
+                                          </div>
+                                          {(s.correct !== undefined && s.total !== undefined) && (
+                                              <span className="text-sm font-black bg-amber-200 dark:bg-amber-800 px-2.5 py-1 rounded-lg text-amber-800 dark:text-amber-200 shadow-sm">
+                                                  {s.correct}/{s.total}
+                                              </span>
+                                          )}
                                       </li>
                                   ))}
                               </ul>
                           ) : (
-                              <p className="text-amber-700/50 dark:text-amber-400/50 italic font-medium">None flagged</p>
+                              <div className="flex flex-col items-center justify-center flex-grow opacity-70 mt-4 mb-4">
+                                  <Trophy size={36} className="text-amber-600/50 dark:text-amber-400/50 mb-3" />
+                                  <p className="text-sm font-bold text-amber-800 dark:text-amber-300 text-center">Perfect phase!<br/>All topics cleared.</p>
+                              </div>
                           )}
                       </div>
                   </div>
@@ -308,7 +360,7 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
       const liveScore = answers.filter(a => a.is_correct).length;
 
       return (
-          <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden w-full absolute inset-0">
+          <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 overflow-hidden w-full">
               {/* Header Fixed Area */}
               <div className="flex-shrink-0 px-4 pt-4 md:px-8 md:pt-8 bg-zinc-50 dark:bg-zinc-950 z-10 w-full max-w-7xl mx-auto">
                   <Card className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 md:p-6 gap-5 md:gap-6 border-zinc-200/60 dark:border-zinc-800 bg-gradient-to-r from-blue-500/10 to-indigo-500/5 backdrop-blur-md shadow-sm border-none">
@@ -351,69 +403,40 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
                               <ShieldAlert size={20} />
                               <span className="text-sm font-bold tracking-widest uppercase">Question {currentQuestionIndex + 1}</span>
                           </div>
-                          <div className="w-full text-zinc-800 dark:text-zinc-100 max-w-3xl text-xl md:text-3xl font-extrabold leading-snug md:leading-tight text-left md:text-center mx-auto animate-in fade-in duration-500">
+                          <div className="w-full text-zinc-800 dark:text-zinc-100 max-w-3xl text-xl md:text-3xl font-extrabold leading-snug md:leading-tight text-left md:text-center mx-auto animate-in fade-in duration-500 whitespace-pre-wrap">
                               <Markdown components={markdownComponents}>
                                   {currentQ.question}
                               </Markdown>
                           </div>
                       </div>
 
-                      {/* The Feedback/Explanation Area (Middle) */}
-                      {isSubmitted && (
-                          <div className={`w-full p-6 md:p-8 rounded-3xl animate-in fade-in slide-in-from-bottom-4 shadow-xl border-2 ${
-                              selectedOption === currentQ.correct_index
-                                  ? "bg-emerald-50 border-emerald-200 text-emerald-950 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-50"
-                                  : "bg-red-50 border-red-200 text-red-950 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-50"
-                          }`}>
-                              <div className="flex items-center gap-3 font-black text-2xl mb-3">
-                                  {selectedOption === currentQ.correct_index ? (
-                                      <><CheckCircle size={28} className="text-emerald-500" /> Outstanding!</>
-                                  ) : (
-                                      <><XCircle size={28} className="text-red-500" /> Not quite</>
-                                  )}
-                              </div>
-                              <div className="leading-relaxed opacity-90 text-sm font-medium prose dark:prose-invert">
-                                  <Markdown components={markdownComponents}>{currentQ.explanation || "No explanation provided for this question."}</Markdown>
-                              </div>
-                          </div>
-                      )}
+                      {/* The Feedback/Explanation Area (Middle) Removed */}
 
                       {/* The Options Area (2x2 Grid) */}
                       <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-auto">
                           {currentQ.options.map((option, idx) => {
                               const isSelected = selectedOption === idx;
-                              const isCorrectRow = isSubmitted && idx === currentQ.correct_index;
-                              const isWrongRow = isSubmitted && isSelected && idx !== currentQ.correct_index;
                               const optionId = String.fromCharCode(65 + idx);
                               
                               let style = "py-6 md:py-8 text-lg justify-start px-6 font-bold border-2 transition-all text-left whitespace-normal h-auto rounded-3xl min-h-[100px]";
 
-                              if (isSelected && !isSubmitted) style += " border-blue-500 bg-blue-50/80 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shadow-[0_0_0_4px_rgba(59,130,246,0.1)] scale-[1.02] z-10";
-                              else if (isCorrectRow) style += " border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 shadow-lg scale-[1.02] z-10";
-                              else if (isWrongRow) style += " border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300 shadow-md";
+                              if (isSelected) style += " border-blue-500 bg-blue-50/80 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shadow-[0_0_0_4px_rgba(59,130,246,0.1)] scale-[1.02] z-10";
                               else style += " border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:scale-[1.01]";
-
-                              if (isSubmitted && !isCorrectRow && !isWrongRow) {
-                                  style += " opacity-50 grayscale hover:scale-100 hover:bg-white dark:hover:bg-zinc-900 hover:border-zinc-200 dark:hover:border-zinc-800";
-                              }
 
                               return (
                                   <Button
                                       key={idx}
                                       variant="outline"
                                       className={style}
-                                      onClick={() => { if (!isSubmitted) setSelectedOption(idx); }}
-                                      disabled={isSubmitted}
+                                      onClick={() => setSelectedOption(idx)}
                                   >
                                       <span className={`w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl mr-4 md:mr-5 text-sm md:text-base font-black tracking-wider uppercase flex-shrink-0 transition-colors
-                                          ${(isSelected && !isSubmitted) ? "bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200" :
-                                              isCorrectRow ? "bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100" :
-                                                  isWrongRow ? "bg-red-200 text-red-900 dark:bg-red-800 dark:text-red-100" :
+                                          ${isSelected ? "bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200" :
                                                       "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
                                           }`}>
                                           {optionId}
                                       </span>
-                                      <span className="leading-snug">{option}</span>
+                                      <span className="leading-snug whitespace-pre-wrap text-left">{option}</span>
                                   </Button>
                               );
                           })}
@@ -424,36 +447,22 @@ const DiagnosticWizard = ({ courseId, studentId, onComplete }) => {
               {/* Bottom Anchored Action Bar */}
               <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-200/60 dark:border-zinc-800/60 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.1)] z-20">
                   <div className="w-full max-w-4xl mx-auto flex justify-end">
-                      {!isSubmitted ? (
-                          <Button 
-                              size="lg" 
-                              className={`w-full md:w-auto md:min-w-[320px] h-14 md:h-16 text-xl font-black rounded-2xl transition-all shadow-xl ${
-                                  selectedOption !== null
-                                      ? "bg-zinc-900 text-white hover:bg-zinc-800 hover:-translate-y-1 hover:shadow-2xl dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 dark:hover:shadow-white/20" 
-                                      : "bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-600 cursor-not-allowed border-none shadow-none"
-                              }`} 
-                              onClick={handleNext} 
-                              disabled={selectedOption === null}
-                          >
-                              Check Answer
-                          </Button>
-                      ) : (
-                          <Button
-                              size="lg"
-                              className={`w-full md:w-auto md:min-w-[320px] h-14 md:h-16 text-xl font-black gap-3 rounded-2xl hover:-translate-y-1 transition-all shadow-xl ${
-                                  selectedOption === currentQ.correct_index 
-                                      ? "bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-emerald-500/30 dark:bg-emerald-500 dark:hover:bg-emerald-400" 
-                                      : "bg-red-600 text-white hover:bg-red-700 hover:shadow-red-500/30 dark:bg-red-500 dark:hover:bg-red-400"
-                              }`}
-                              onClick={handleNext}
-                          >
-                              {currentQuestionIndex < totalQuestions - 1 ? (
-                                  <>Continue <ChevronRight size={24} /></>
-                              ) : (
-                                  <>Complete Phase {currentPhase} <CheckCircle className="ml-2" size={24} /></>
-                              )}
-                          </Button>
-                      )}
+                      <Button 
+                          size="lg" 
+                          className={`w-full md:w-auto md:min-w-[320px] h-14 md:h-16 text-xl font-black rounded-2xl transition-all shadow-xl ${
+                              selectedOption !== null
+                                  ? "bg-zinc-900 text-white hover:bg-zinc-800 hover:-translate-y-1 hover:shadow-2xl dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 dark:hover:shadow-white/20" 
+                                  : "bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-600 cursor-not-allowed border-none shadow-none"
+                          }`} 
+                          onClick={handleNext} 
+                          disabled={selectedOption === null}
+                      >
+                          {currentQuestionIndex < totalQuestions - 1 ? (
+                              <>Next Question <ChevronRight className="ml-2" size={24} /></>
+                          ) : (
+                              <>Complete Phase {currentPhase} <CheckCircle className="ml-2" size={24} /></>
+                          )}
+                      </Button>
                   </div>
               </div>
           </div>

@@ -105,7 +105,7 @@ def get_enrolled_courses(student_id: UUID, supabase: Client = Depends(get_supaba
             course_stats[c_id]["total"] += 1
             if p["status"] == "Mastered":
                 course_stats[c_id]["mastered"] += 1
-            elif p["status"] == "Unlocked" and c_id not in course_foci:
+            elif p["status"] in ["Unlocked", "In Progress"] and c_id not in course_foci:
                 skill_info = p.get("skills")
                 if skill_info and isinstance(skill_info, dict):
                     course_foci[c_id] = skill_info.get("name", "Continue Learning")
@@ -203,17 +203,22 @@ def update_progress(req: ProgressUpdateRequest, supabase: Client = Depends(get_s
                 # To unlock t_id, ALL of its incoming edges must come from 'Mastered' skills
                 incoming = supabase.table("prerequisite_edges").select("source_skill_id").eq("target_skill_id", t_id).execute()
                 inc_sources = [e["source_skill_id"] for e in incoming.data]
+                if not inc_sources:
+                    continue
                 
                 # Check statuses of inc_sources
                 source_progs = supabase.table("student_node_progress").select("status").eq("student_id", str(req.student_id)).in_("skill_id", inc_sources).execute()
                 
-                all_mastered = all(p["status"] == "Mastered" for p in source_progs.data)
+                mastered_count = sum(1 for p in source_progs.data if p["status"] == "Mastered")
                 
-                if all_mastered:
-                    # Unlock this target!
-                    supabase.table("student_node_progress").update({
-                        "status": "Unlocked"
-                    }).eq("student_id", str(req.student_id)).eq("skill_id", t_id).execute()
+                if mastered_count == len(inc_sources):
+                    # Ensure we don't downgrade a target that was already Mastered
+                    t_prog = supabase.table("student_node_progress").select("status").eq("student_id", str(req.student_id)).eq("skill_id", t_id).execute()
+                    if t_prog.data and t_prog.data[0]["status"] == "Locked":
+                        # Unlock this target!
+                        supabase.table("student_node_progress").update({
+                            "status": "Unlocked"
+                        }).eq("student_id", str(req.student_id)).eq("skill_id", t_id).execute()
 
         return {"status": "success"}
     except Exception as e:

@@ -758,7 +758,7 @@ export default function CourseView() {
 
             {/* Diagnostic Wizard Overlay */}
             {showDiagnosticWizard && (
-                <div className="fixed inset-0 z-[100] bg-zinc-50 dark:bg-zinc-950 animate-in fade-in duration-300">
+                <div className="absolute inset-0 z-[100] bg-zinc-50 dark:bg-zinc-950 animate-in fade-in duration-300">
                     <DiagnosticWizard 
                         courseId={courseId} 
                         studentId={user.id} 

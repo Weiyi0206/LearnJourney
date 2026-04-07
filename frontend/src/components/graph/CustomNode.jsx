@@ -23,7 +23,7 @@ export default function CustomNode({ data }) {
             );
         }
 
-        if (studentStatus === 'Unlocked') {
+        if (studentStatus === 'Unlocked' || studentStatus === 'In Progress') {
             return (
                 <div className="bg-blue-600 text-white font-black rounded-2xl px-6 py-4 shadow-[0_0_28px_rgba(59,130,246,0.5)] border-4 border-blue-400/30 min-w-[160px] flex items-center justify-between gap-4 relative">
                     <div className="absolute inset-0 bg-blue-400 rounded-2xl animate-ping opacity-20 pointer-events-none" />

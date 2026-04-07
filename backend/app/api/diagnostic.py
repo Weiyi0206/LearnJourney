@@ -23,8 +23,8 @@ class DiagnosticSubmitRequest(BaseModel):
 @router.get("/api/diagnostic/next-phase/{course_id}/{student_id}")
 def get_next_phase(course_id: str, student_id: str, supabase: Client = Depends(get_supabase_client)):
     try:
-        # Query Unlocked skills for the student
-        prog_res = supabase.table("student_node_progress").select("skill_id, status, skills(name)").eq("student_id", student_id).eq("course_id", course_id).eq("status", "Unlocked").execute()
+        # Query pristine Unlocked skills for the student (mastery_score = 0 means untested)
+        prog_res = supabase.table("student_node_progress").select("skill_id, status, skills(name)").eq("student_id", student_id).eq("course_id", course_id).eq("status", "Unlocked").eq("mastery_score", 0).execute()
         
         if not prog_res.data:
             return {"has_next_phase": False}
@@ -45,6 +45,9 @@ def get_next_phase(course_id: str, student_id: str, supabase: Client = Depends(g
             
         if not unlocked_skills:
             return {"has_next_phase": False}
+        
+        # Cap unlocked skills at 5 to avoid token limits
+        unlocked_skills = unlocked_skills[:5]
 
         # Use Vertex AI to generate questions
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./gcp-service-account.json"
@@ -55,12 +58,12 @@ def get_next_phase(course_id: str, student_id: str, supabase: Client = Depends(g
         
         # Batch generation could be faster, but let's do one prompt per skill to ensure exactly 3 questions
         # or we can ask gemini to generate 3 per skill in one big prompt. One big prompt is much faster.
-        skill_names = [s["name"] for s in unlocked_skills if s.get("name")]
+        skill_prompts = [f"ID: {s['id']} - Name: {s['name']}" for s in unlocked_skills if s.get("name")]
         
         prompt = f"""
         You are an expert assessment generator.
         Generate exactly 3 multiple-choice questions for EACH of the following skills:
-        {', '.join(skill_names)}
+        {', '.join(skill_prompts)}
         
         INSTRUCTIONS:
         1. For each skill, generate exactly 3 questions.
@@ -68,6 +71,7 @@ def get_next_phase(course_id: str, student_id: str, supabase: Client = Depends(g
         3. Include a short, educational 'explanation' explaining why the correct answer is right.
         4. Keep the content rigorous but straightforward.
         5. Return the result mapped by skill name exactly as spelled.
+        6. CODE FORMATTING: You MUST enclose ALL code snippets (in questions, options, or explanations) inside proper markdown triple-backticks (e.g. ```python ... ```). Do not rely on indentation.
         """
         
         schema = {
@@ -78,6 +82,7 @@ def get_next_phase(course_id: str, student_id: str, supabase: Client = Depends(g
                     "items": {
                         "type": "object",
                         "properties": {
+                            "skill_id": {"type": "string"},
                             "skill_name": {"type": "string"},
                             "questions": {
                                 "type": "array",
@@ -124,17 +129,9 @@ def get_next_phase(course_id: str, student_id: str, supabase: Client = Depends(g
         
         # Map back to skill IDs and flatten into a single shuffled array
         import random
-        skill_name_to_id = {s["name"].lower(): s["id"] for s in unlocked_skills if s.get("name")}
         
         for sq in data.get("skills_questions", []):
-            s_name = (sq.get("skill_name") or "").lower()
-            s_id = skill_name_to_id.get(s_name)
-            if not s_id:
-                # fuzzy match if exact match fails
-                for exact_name, exact_id in skill_name_to_id.items():
-                    if exact_name in s_name or s_name in exact_name:
-                        s_id = exact_id
-                        break
+            s_id = sq.get("skill_id")
             
             if s_id:
                 for q in sq.get("questions", []):
@@ -171,7 +168,7 @@ def submit_phase(req: DiagnosticSubmitRequest, supabase: Client = Depends(get_su
         failed_skills = []
         
         for skill_id, stats in skill_results.items():
-            if stats["correct"] >= 2:
+            if stats["correct"] == 3: # Require all correct to pass
                 # Mastered
                 supabase.table("student_node_progress").update({
                     "status": "Mastered",
@@ -180,45 +177,83 @@ def submit_phase(req: DiagnosticSubmitRequest, supabase: Client = Depends(get_su
                 passed_skills.append(skill_id)
             else:
                 # Failed Diagnostic
+                # We do NOT set it to "Locked" because its prerequisites are already met,
+                # meaning the student legally has access to study it in the learning path.
+                # We update the mastery_score slightly off 0 to mark it as 'tested' 
+                # so the diagnostic engine doesn't infinite loop on it.
+                score = max(1.0, (stats["correct"] / 3.0) * 100)
                 supabase.table("student_node_progress").update({
-                    "status": "Locked"
+                    "status": "Unlocked",
+                    "mastery_score": score
                 }).eq("student_id", req.student_id).eq("skill_id", skill_id).execute()
                 failed_skills.append(skill_id)
                 
         # For ALL newly mastered skills, unlock children if prerequisites met
         unlocked_skills = []
+        target_ids_set = set()
         for p_skill_id in passed_skills:
             outgoing = supabase.table("prerequisite_edges").select("target_skill_id").eq("source_skill_id", p_skill_id).execute()
-            target_ids = [e["target_skill_id"] for e in outgoing.data]
+            for e in outgoing.data:
+                target_ids_set.add(e["target_skill_id"])
             
-            for t_id in target_ids:
+        for t_id in target_ids_set:
                 incoming = supabase.table("prerequisite_edges").select("source_skill_id").eq("target_skill_id", t_id).execute()
                 inc_sources = [e["source_skill_id"] for e in incoming.data]
+                if not inc_sources:
+                    continue
                 
                 source_progs = supabase.table("student_node_progress").select("status").eq("student_id", req.student_id).in_("skill_id", inc_sources).execute()
-                all_mastered = all(p["status"] == "Mastered" for p in source_progs.data)
+                mastered_count = sum(1 for p in source_progs.data if p["status"] == "Mastered")
                 
-                if all_mastered:
-                    supabase.table("student_node_progress").update({
-                        "status": "Unlocked"
-                    }).eq("student_id", req.student_id).eq("skill_id", t_id).execute()
-                    unlocked_skills.append(t_id)
+                if mastered_count == len(inc_sources):
+                    t_prog = supabase.table("student_node_progress").select("status").eq("student_id", req.student_id).eq("skill_id", t_id).execute()
+                    if t_prog.data and t_prog.data[0]["status"] == "Locked":
+                        supabase.table("student_node_progress").update({
+                            "status": "Unlocked"
+                        }).eq("student_id", req.student_id).eq("skill_id", t_id).execute()
+                        unlocked_skills.append(t_id)
 
-        # Get names for display
-        passed_names = []
-        failed_names = []
-        if passed_skills:
-            res = supabase.table("skills").select("name").in_("id", passed_skills).execute()
-            passed_names = [r["name"] for r in res.data]
-        if failed_skills:
-            res = supabase.table("skills").select("name").in_("id", failed_skills).execute()
-            failed_names = [r["name"] for r in res.data]
+        # Map skill IDs to names and build display objects with scores
+        passed_display = []
+        failed_display = []
+        
+        # Get all involved skill names in one query
+        all_involved = passed_skills + failed_skills
+        skill_names = {}
+        if all_involved:
+            res = supabase.table("skills").select("id, name").in_("id", all_involved).execute()
+            skill_names = {r["id"]: r["name"] for r in res.data}
+            
+        for s_id in passed_skills:
+            passed_display.append({
+                "name": skill_names.get(s_id, "Unknown Skill"),
+                "correct": skill_results[s_id]["correct"],
+                "total": skill_results[s_id]["total"]
+            })
+            
+        for s_id in failed_skills:
+            failed_display.append({
+                "name": skill_names.get(s_id, "Unknown Skill"),
+                "correct": skill_results[s_id]["correct"],
+                "total": skill_results[s_id]["total"]
+            })
+            
+        # Check if there are any unlocked skills remaining in the graph
+        # However, if the student failed 100% of the topics in this phase, 
+        # we terminate the diagnostic early assuming they hit their knowledge boundary.
+        if not passed_skills:
+            has_next_phase = False
+        else:
+            # Check if there are any untested Unlocked nodes left
+            next_phase_res = supabase.table("student_node_progress").select("skill_id").eq("student_id", req.student_id).eq("course_id", req.course_id).eq("status", "Unlocked").eq("mastery_score", 0).limit(1).execute()
+            has_next_phase = len(next_phase_res.data) > 0
 
         return {
             "status": "success",
+            "has_next_phase": has_next_phase,
             "summary": {
-                "passed": passed_names,
-                "failed": failed_names,
+                "passed": passed_display,
+                "failed": failed_display,
                 "newly_unlocked_count": len(unlocked_skills)
             }
         }

@@ -75,7 +75,7 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                         <SheetTitle className="text-3xl font-extrabold">{node?.data?.label}</SheetTitle>
                         {status === 'Mastered' ? (
                             <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 px-3 py-1 font-bold text-xs"><CheckCircle2 size={12} className="mr-1" /> Mastered</Badge>
-                        ) : status === 'Unlocked' ? (
+                        ) : (status === 'Unlocked' || status === 'In Progress') ? (
                             <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 px-3 py-1 font-bold text-xs">In Progress</Badge>
                         ) : (
                             <Badge variant="outline" className="text-zinc-400 border-zinc-200 bg-zinc-50 px-3 py-1 font-bold text-xs">Locked</Badge>

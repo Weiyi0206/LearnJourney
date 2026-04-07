@@ -395,7 +395,7 @@ export default function Quizzes() {
                             <ShieldAlert size={20} />
                             <span className="text-sm font-bold tracking-widest uppercase">Question {currentIndex + 1}</span>
                         </div>
-                        <div className="w-full text-zinc-800 dark:text-zinc-100 max-w-3xl text-xl md:text-3xl font-extrabold leading-snug md:leading-tight text-left md:text-center mx-auto">
+                        <div className="w-full text-zinc-800 dark:text-zinc-100 max-w-3xl text-xl md:text-3xl font-extrabold leading-snug md:leading-tight text-left md:text-center mx-auto whitespace-pre-wrap">
                             <Markdown components={markdownComponents}>
                                 {currentQuestion.question}
                             </Markdown>
@@ -456,7 +456,7 @@ export default function Quizzes() {
                                         }`}>
                                         {option.id}
                                     </span>
-                                    <span className="leading-snug">{option.text}</span>
+                                    <span className="leading-snug whitespace-pre-wrap text-left">{option.text}</span>
                                 </Button>
                             );
                         })}
