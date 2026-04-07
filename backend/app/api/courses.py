@@ -1,7 +1,8 @@
 import os
 import json
+import requests as http_requests
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from uuid import UUID
 from pydantic import BaseModel, Field
 from app.models.schemas import Course, CourseCreate, CourseGraphResponse
@@ -208,6 +209,103 @@ def generate_course_graph(request: GenerateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ── YouTube Auto-Attach Helper ──
+
+def fetch_youtube_videos(course_title: str, skill_name: str, max_results: int = 3) -> List[dict]:
+    """Search YouTube Data API v3 for relevant tutorial videos.
+    Returns [{"title": ..., "url": "https://www.youtube.com/embed/..."}, ...] or [].
+    """
+    api_key = os.getenv("YOUTUBE_API_KEY")
+    if not api_key:
+        return []
+    try:
+        resp = http_requests.get(
+            "https://www.googleapis.com/youtube/v3/search",
+            params={
+                "part": "snippet",
+                "q": f"{course_title} {skill_name} tutorial programming",
+                "maxResults": max_results,
+                "type": "video",
+                "key": api_key,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        items = resp.json().get("items", [])
+        if not items:
+            return []
+        
+        videos = []
+        for item in items:
+            video_id = item["id"]["videoId"]
+            title = item["snippet"]["title"]
+            videos.append({"title": title, "url": f"https://www.youtube.com/embed/{video_id}"})
+        return videos
+    except Exception as e:
+        print(f"YouTube fetch error for '{skill_name}': {e}")
+        return []
+
+
+@router.get("/api/skills/{skill_id}/youtube-recommend")
+def youtube_recommend_for_skill(skill_id: str, course_title: str = "", skill_name: str = "", supabase: Client = Depends(get_supabase_client)):
+    """On-demand: check if an AI-recommended video already exists for this skill.
+    If not, search YouTube, insert it, and return the new material row."""
+    try:
+        # 1. Check if one already exists
+        existing = supabase.table("materials").select("*").eq("skill_id", skill_id).eq("is_ai_recommended", True).execute()
+        if existing.data:
+            return existing.data[:3]  # already have recommendations, limit to 3
+
+        # 2. Need course_title & skill_name to search
+        if not course_title or not skill_name:
+            # Try to resolve from DB
+            skill_res = supabase.table("skills").select("name, course_id").eq("id", skill_id).execute()
+            if skill_res.data:
+                skill_name = skill_name or skill_res.data[0].get("name", "")
+                cid = skill_res.data[0].get("course_id")
+                if cid and not course_title:
+                    course_res = supabase.table("courses").select("title").eq("id", cid).execute()
+                    if course_res.data:
+                        course_title = course_res.data[0].get("title", "")
+
+        if not skill_name:
+            return []
+
+        # 3. Call YouTube
+        videos = fetch_youtube_videos(course_title, skill_name)
+        if not videos:
+            return []
+            
+        # 4. Final safety check: Re-verify existence after network call to prevent race condition duplicates
+        check_again = supabase.table("materials").select("id").eq("skill_id", skill_id).eq("is_ai_recommended", True).execute()
+        if check_again.data:
+            final_res = supabase.table("materials").select("*").eq("skill_id", skill_id).eq("is_ai_recommended", True).execute()
+            return final_res.data[:3]
+
+        # 5. Look up course_id for this skill
+        skill_row = supabase.table("skills").select("course_id").eq("id", skill_id).execute()
+        course_id = skill_row.data[0]["course_id"] if skill_row.data else None
+
+        inserted_materials = []
+        for video in videos[:3]: # Ensure we only insert up to 3
+            material_data = {
+                "skill_id": skill_id,
+                "course_id": course_id,
+                "title": video["title"],
+                "type": "video",
+                "content": video["url"],
+                "is_ai_recommended": True,
+            }
+            res = supabase.table("materials").insert(material_data).execute()
+            if res.data:
+                inserted_materials.append(res.data[0])
+                
+        return inserted_materials[:3]
+    except Exception as e:
+        print(f"YouTube recommend error: {e}")
+        return []
+
+
 @router.post("/api/courses/deploy")
 def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabase_client)):
     try:
@@ -225,10 +323,11 @@ def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabas
         
         course_id = course_res.data[0]["id"]
 
-        # 3. Keep a mapping in Python of the old_node_id to the new_skill_uuid 
+        # 2. Keep a mapping of old_node_id -> new_skill_uuid and skill names
         id_mapping = {}
+        skill_names = {}  # new_uuid -> skill_name
 
-        # 2. Iterate through the nodes. Insert them into the skills table
+        # 3. Iterate through nodes, insert into skills table
         for node in request.nodes:
             old_id = node.get("id")
             node_data = node.get("data", {})
@@ -247,8 +346,25 @@ def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabas
             if skill_res.data:
                 new_skill_uuid = skill_res.data[0]["id"]
                 id_mapping[old_id] = new_skill_uuid
+                skill_names[new_skill_uuid] = label
 
-        # 4 & 5. Iterate through the edges and lookup the mapping
+        # 4. Auto-attach YouTube tutorials for each skill
+        for skill_uuid, skill_name in skill_names.items():
+            videos = fetch_youtube_videos(request.title, skill_name)
+            for video in videos:
+                try:
+                    supabase.table("materials").insert({
+                        "skill_id": skill_uuid,
+                        "course_id": course_id,
+                        "title": video["title"],
+                        "type": "video",
+                        "content": video["url"],
+                        "is_ai_recommended": True,
+                    }).execute()
+                except Exception as yt_err:
+                    print(f"Failed to insert YouTube material for '{skill_name}': {yt_err}")
+
+        # 5. Iterate through edges and lookup the mapping
         for edge in request.edges:
             source_old = edge.get("source")
             target_old = edge.get("target")
@@ -316,7 +432,8 @@ def create_skill_material(skill_id: str, req: MaterialCreate, supabase: Client =
             "course_id": course_id,
             "title": req.title,
             "type": req.type,
-            "content": req.content
+            "content": req.content,
+            "is_ai_recommended": False,
         }
         res = supabase.table("materials").insert(material_data).execute()
         if not res.data:
@@ -332,6 +449,23 @@ def delete_material(material_id: str, supabase: Client = Depends(get_supabase_cl
     try:
         res = supabase.table("materials").delete().eq("id", material_id).execute()
         return {"status": "success", "deleted": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class MaterialUpdate(BaseModel):
+    title: Optional[str] = None
+    type: Optional[str] = None
+    content: Optional[str] = None
+
+@router.put("/api/materials/{material_id}")
+def update_material(material_id: str, req: MaterialUpdate, supabase: Client = Depends(get_supabase_client)):
+    try:
+        update_data = {}
+        if req.title is not None: update_data["title"] = req.title
+        if req.type is not None: update_data["type"] = req.type
+        if req.content is not None: update_data["content"] = req.content
+        res = supabase.table("materials").update(update_data).eq("id", material_id).execute()
+        return res.data[0] if res.data else {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

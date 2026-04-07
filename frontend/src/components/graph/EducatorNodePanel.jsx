@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Activity, Book, FileText, Video, ArrowUpCircle, Link as LinkIcon, AlertTriangle, Send, Loader2, Trophy, XCircle, Clock, CheckCircle2, Sparkles, ChevronDown, ChevronRight, Target } from "lucide-react";
+import { Activity, Book, FileText, Video, ArrowUpCircle, Link as LinkIcon, AlertTriangle, Send, Loader2, Trophy, XCircle, Clock, CheckCircle2, Sparkles, ChevronDown, ChevronRight, Target, Trash2, Edit3 } from "lucide-react";
 import Markdown from "react-markdown";
-import { MaterialAPI } from "@/lib/apiClient";
+import { MaterialAPI, CourseAPI } from "@/lib/apiClient";
 import { supabase } from "@/lib/supabase";
 
 const markdownComponents = {
@@ -37,16 +37,13 @@ const formatAttemptDate = (dateString) => {
 };
 
 export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner = true }) {
-    if (!node) return null;
-
-    const nodeMetadata = fullCourseData.nodesData?.[node.id] || {};
-    const analytics = nodeMetadata.analytics || { failRate: '0%', studentAttempts: [] };
-    const materials = nodeMetadata.materials || [];
-
-    const [localMaterials, setLocalMaterials] = useState(materials);
+    const [localMaterials, setLocalMaterials] = useState([]);
     const [localAnalytics, setLocalAnalytics] = useState({ passingRate: '0%', studentAttempts: [] });
     const [loadingAnalytics, setLoadingAnalytics] = useState(false);
     const [expandedAttemptId, setExpandedAttemptId] = useState(null);
+    const [onDemandAiMaterials, setOnDemandAiMaterials] = useState([]);
+    const [aiLoading, setAiLoading] = useState(false);
+    const fetchingRef = useRef(null);
     
     // Upload Form State
     const [showUploadForm, setShowUploadForm] = useState(false);
@@ -56,16 +53,47 @@ export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner 
     const [newFile, setNewFile] = useState(null);
     const [isPublishing, setIsPublishing] = useState(false);
     const [selectedMaterial, setSelectedMaterial] = useState(null);
+    const [editingMaterialId, setEditingMaterialId] = useState(null);
+    const [materialToDelete, setMaterialToDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Hydrate Materials
     useEffect(() => {
+        if (!node?.id) return;
+        const nodeMetadata = fullCourseData.nodesData?.[node.id] || {};
         setLocalMaterials(nodeMetadata.materials || []);
-    }, [node.id, fullCourseData]);
+    }, [node?.id, fullCourseData]);
+
+    // On-demand YouTube fetch
+    useEffect(() => {
+        if (!node?.id) return;
+        const nodeMetadata = fullCourseData.nodesData?.[node.id] || {};
+        const existingAi = (nodeMetadata.materials || []).filter(m => m.is_ai_recommended);
+        if (existingAi.length > 0) {
+            setOnDemandAiMaterials([]);
+            return;
+        }
+
+        if (fetchingRef.current === node.id) return;
+        fetchingRef.current = node.id;
+
+        setAiLoading(true);
+        CourseAPI.fetchYoutubeRecommend(node.id, fullCourseData?.title || '', node.data?.label || '')
+            .then(data => {
+                setOnDemandAiMaterials(data || []);
+                // Also add to localMaterials so the tab counts stay consistent
+                if (data && data.length > 0) {
+                    setLocalMaterials(prev => [...prev, ...data]);
+                }
+            })
+            .catch(() => setOnDemandAiMaterials([]))
+            .finally(() => setAiLoading(false));
+    }, [node?.id, fullCourseData]);
 
     // Hydrate Analytics dynamically from Supabase
     useEffect(() => {
         const fetchAnalytics = async () => {
-            if (!isCourseOwner) return;
+            if (!node?.id || !isCourseOwner) return;
             setLoadingAnalytics(true);
             try {
                 // Primary query with profiles join
@@ -100,7 +128,13 @@ export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner 
             }
         };
         fetchAnalytics();
-    }, [node.id, isCourseOwner]);
+    }, [node?.id, isCourseOwner]);
+
+    if (!node) return null;
+
+    const nodeMetadata = fullCourseData.nodesData?.[node.id] || {};
+    const analytics = nodeMetadata.analytics || { failRate: '0%', studentAttempts: [] };
+    const materials = nodeMetadata.materials || [];
 
     const handlePublish = async () => {
         if (!newTitle.trim()) {
@@ -132,20 +166,58 @@ export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner 
 
         setIsPublishing(true);
         try {
-            const added = await MaterialAPI.createMaterial(node.id, {
-                title: newTitle,
-                type: newType,
-                content: finalContent
-            });
-            const mat = { ...added, name: added.title || added.name };
-            setLocalMaterials(prev => [...prev, mat]);
+            if (editingMaterialId) {
+                const updated = await MaterialAPI.updateMaterial(editingMaterialId, {
+                    title: newTitle,
+                    type: newType,
+                    content: finalContent
+                });
+                const mat = { ...updated, name: updated.title || updated.name };
+                setLocalMaterials(prev => prev.map(m => m.id === editingMaterialId ? mat : m));
+                setEditingMaterialId(null);
+            } else {
+                const added = await MaterialAPI.createMaterial(node.id, {
+                    title: newTitle,
+                    type: newType,
+                    content: finalContent
+                });
+                const mat = { ...added, name: added.title || added.name };
+                setLocalMaterials(prev => [...prev, mat]);
+            }
             setNewTitle('');
             setNewContent('');
             setNewFile(null);
+            setShowUploadForm(false);
         } catch (error) {
             alert("Failed to publish material: " + (error.response?.data?.detail || error.message));
         } finally {
             setIsPublishing(false);
+        }
+    };
+
+    const handleEditMaterial = (m) => {
+        setNewType(m.type);
+        setNewTitle(m.name || m.title || '');
+        setNewContent(m.type !== 'file' ? m.content : '');
+        setEditingMaterialId(m.id);
+        setShowUploadForm(true);
+    };
+
+    const handleDeleteClick = (m) => {
+        setMaterialToDelete(m);
+    };
+
+    const confirmDeleteMaterial = async () => {
+        if (!materialToDelete) return;
+        setIsDeleting(true);
+        try {
+            await MaterialAPI.deleteMaterial(materialToDelete.id);
+            setLocalMaterials(prev => prev.filter(mat => mat.id !== materialToDelete.id));
+            setMaterialToDelete(null);
+        } catch (error) {
+            alert("Failed to delete material: " + (error.response?.data?.detail || error.message));
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -234,7 +306,15 @@ export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner 
                                         variant={showUploadForm ? "ghost" : "default"} 
                                         size="sm" 
                                         className={showUploadForm ? "text-zinc-500 hover:text-red-500" : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"}
-                                        onClick={() => setShowUploadForm(!showUploadForm)}
+                                        onClick={() => {
+                                            if (showUploadForm) {
+                                                setEditingMaterialId(null);
+                                                setNewTitle('');
+                                                setNewContent('');
+                                                setNewType('text');
+                                            }
+                                            setShowUploadForm(!showUploadForm);
+                                        }}
                                     >
                                         {showUploadForm ? 'Cancel' : '+ Upload Material'}
                                     </Button>
@@ -279,35 +359,98 @@ export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner 
                             </div>
                         )}
 
-                        <div>
-                            <h4 className="font-bold mb-3 text-sm uppercase tracking-widest text-zinc-500">Current Attachments</h4>
-                            {localMaterials.length === 0 ? (
-                                <p className="text-zinc-500 font-medium text-sm">No materials added yet.</p>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {localMaterials.map(m => (
-                                        <div 
-                                            key={m.id} 
-                                            onDoubleClick={() => handleOpenMaterial(m)}
-                                            title={getHoverText(m)}
-                                            className="group flex flex-col gap-2 p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm transition-all hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-900/50 cursor-pointer select-none"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2.5 bg-zinc-100 dark:bg-zinc-900 rounded-xl group-hover:scale-110 transition-transform">
-                                                    {getIconForType(m.type)}
+                        <div className="space-y-6">
+                            {(() => {
+                                const educatorMats = localMaterials.filter(m => !m.is_ai_recommended);
+                                const aiMats = [...localMaterials.filter(m => m.is_ai_recommended)].slice(0, 3);
+                                return (
+                                    <>
+                                        <div>
+                                            <h4 className="font-bold mb-3 text-sm uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                                                <Book size={14} /> Educator Resources
+                                            </h4>
+                                            {educatorMats.length === 0 ? (
+                                                <p className="text-zinc-500 font-medium text-sm">No educator materials added yet.</p>
+                                            ) : (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    {educatorMats.map(m => (
+                                                        <div 
+                                                            key={m.id} 
+                                                            onDoubleClick={() => handleOpenMaterial(m)}
+                                                            title={getHoverText(m)}
+                                                            className="group relative flex flex-col gap-2 p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm transition-all hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-900/50 cursor-pointer select-none"
+                                                        >
+                                                            <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30" onClick={(e) => { e.stopPropagation(); handleEditMaterial(m); }}>
+                                                                    <Edit3 size={14} />
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={(e) => { e.stopPropagation(); handleDeleteClick(m); }}>
+                                                                    <Trash2 size={14} />
+                                                                </Button>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="p-2.5 bg-zinc-100 dark:bg-zinc-900 rounded-xl group-hover:scale-110 transition-transform">
+                                                                    {getIconForType(m.type)}
+                                                                </div>
+                                                                <div className="flex flex-col overflow-hidden pr-12">
+                                                                    <span className="font-bold text-sm text-zinc-800 dark:text-zinc-200 truncate">{m.name || m.title}</span>
+                                                                    <Badge variant="outline" className="w-fit text-[9px] uppercase mt-0.5 font-bold tracking-wider">{m.type}</Badge>
+                                                                </div>
+                                                            </div>
+                                                            <div className="mt-2 text-[11px] font-bold text-zinc-400 dark:text-zinc-600 text-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                Double-click to open
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                                <div className="flex flex-col overflow-hidden">
-                                                    <span className="font-bold text-sm text-zinc-800 dark:text-zinc-200 truncate">{m.name || m.title}</span>
-                                                    <Badge variant="outline" className="w-fit text-[9px] uppercase mt-0.5 font-bold tracking-wider">{m.type}</Badge>
-                                                </div>
-                                            </div>
-                                            <div className="mt-2 text-[11px] font-bold text-zinc-400 dark:text-zinc-600 text-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                Double-click to open
-                                            </div>
+                                            )}
                                         </div>
-                                    ))}
-                                </div>
-                            )}
+
+                                        {(aiMats.length > 0 || aiLoading) && (
+                                            <div className="border-t border-zinc-200 dark:border-zinc-800 pt-6">
+                                                <h4 className="font-bold mb-3 text-sm uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                                                    <Sparkles size={14} className="text-blue-500" />
+                                                    <Video size={14} className="text-red-500" />
+                                                    AI Recommended Tutorials
+                                                </h4>
+                                                {aiLoading ? (
+                                                    <div className="flex items-center gap-3 p-6 rounded-2xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10">
+                                                        <Loader2 size={18} className="animate-spin text-blue-500" />
+                                                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Finding relevant tutorials...</span>
+                                                    </div>
+                                                ) : (
+                                                <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 premium-scrollbar">
+                                                    {aiMats.map(m => (
+                                                        <div
+                                                            key={m.id}
+                                                            className="shrink-0 w-[85%] sm:w-[280px] snap-center rounded-2xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10 overflow-hidden shadow-sm flex flex-col"
+                                                        >
+                                                            <div className="aspect-video w-full bg-zinc-900 overflow-hidden shrink-0">
+                                                                <iframe
+                                                                    src={m.content?.includes('watch?v=') ? m.content.replace('watch?v=', 'embed/') : m.content}
+                                                                    className="w-full h-full"
+                                                                    allowFullScreen
+                                                                    allow="autoplay; encrypted-media"
+                                                                    title={m.title}
+                                                                />
+                                                            </div>
+                                                            <div className="p-4 flex items-start gap-3 flex-grow">
+                                                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg shrink-0 mt-0.5">
+                                                                    <Video size={16} className="text-blue-600 dark:text-blue-400" />
+                                                                </div>
+                                                                <div className="overflow-hidden">
+                                                                    <p className="font-bold text-sm text-zinc-800 dark:text-zinc-200 line-clamp-2">{m.title}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </TabsContent>
 
@@ -447,6 +590,9 @@ export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner 
                             <Book className="text-indigo-500" />
                             {selectedMaterial?.name || selectedMaterial?.title}
                         </DialogTitle>
+                        <DialogDescription className="text-sm text-zinc-500 font-medium">
+                            Reviewing content for this {selectedMaterial?.type || 'learning resource'}.
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="overflow-y-auto premium-scrollbar p-6 md:p-8 flex-1 prose prose-zinc dark:prose-invert max-w-none">
                         {selectedMaterial?.type === 'video' ? (
@@ -461,6 +607,28 @@ export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner 
                         ) : (
                             <Markdown components={markdownComponents}>{selectedMaterial?.content}</Markdown>
                         )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={!!materialToDelete} onOpenChange={(open) => !open && setMaterialToDelete(null)}>
+                <DialogContent className="sm:max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                            <AlertTriangle className="text-red-500 w-5 h-5" />
+                            Delete Material
+                        </DialogTitle>
+                        <DialogDescription className="text-zinc-500 mt-2">
+                            Are you sure you want to delete "<strong>{materialToDelete?.name || materialToDelete?.title}</strong>"? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-3 mt-6">
+                        <Button variant="outline" onClick={() => setMaterialToDelete(null)} disabled={isDeleting}>Cancel</Button>
+                        <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white font-bold" onClick={confirmDeleteMaterial} disabled={isDeleting}>
+                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                            Delete
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>

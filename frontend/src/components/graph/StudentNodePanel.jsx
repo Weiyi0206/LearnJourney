@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
 import { SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import Markdown from 'react-markdown';
 import { Sparkles, FileText, Video, ArrowUpCircle, Link as LinkIcon, CheckCircle2, Book, History, Trophy, XCircle, Clock, ChevronDown, ChevronRight } from "lucide-react";
-import { QuizService } from "@/lib/apiClient";
+import { QuizService, CourseAPI } from "@/lib/apiClient";
 import { useAuth } from "@/contexts/AuthContext";
 
 const markdownComponents = {
@@ -33,6 +33,9 @@ export default function StudentNodePanel({ node, fullCourseData }) {
     const [historyLoading, setHistoryLoading] = useState(false);
     const [selectedAttempt, setSelectedAttempt] = useState(null);
     const [selectedMaterial, setSelectedMaterial] = useState(null);
+    const [onDemandAiMaterials, setOnDemandAiMaterials] = useState([]);
+    const [aiLoading, setAiLoading] = useState(false);
+    const fetchingRef = useRef(null);
 
     useEffect(() => {
         if (user?.id && node?.id) {
@@ -43,6 +46,27 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                 .finally(() => setHistoryLoading(false));
         }
     }, [user?.id, node?.id]);
+
+    // On-demand YouTube fetch: if no AI materials in existing data, try to get one
+    useEffect(() => {
+        if (!node?.id) return;
+        const nodeMetadata = fullCourseData.nodesData?.[node.id] || {};
+        const materialsList = nodeMetadata.materials || [];
+        const existingAi = materialsList.filter(m => m.is_ai_recommended);
+        if (existingAi.length > 0) {
+            setOnDemandAiMaterials([]);
+            return;
+        }
+        
+        if (fetchingRef.current === node.id) return;
+        fetchingRef.current = node.id;
+
+        setAiLoading(true);
+        CourseAPI.fetchYoutubeRecommend(node.id, fullCourseData?.title || '', node.data?.label || '')
+            .then(data => setOnDemandAiMaterials(data || []))
+            .catch(() => setOnDemandAiMaterials([]))
+            .finally(() => setAiLoading(false));
+    }, [node?.id, fullCourseData]);
 
     if (!node) return null;
 
@@ -123,42 +147,96 @@ export default function StudentNodePanel({ node, fullCourseData }) {
             </div>
 
             <div className="flex-grow p-6 space-y-6">
-                {/* Learning Materials */}
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                    <FileText size={18} className="text-blue-500" /> Learning Materials
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {materials.map((m, i) => (
-                        <div 
-                            key={i} 
-                            onClick={() => {
-                                if (['link', 'file'].includes(m.type)) {
-                                    window.open(m.content, "_blank");
-                                } else {
-                                    setSelectedMaterial(m);
-                                }
-                            }}
-                            title={getHoverText(m)}
-                            className="group flex flex-col gap-2 p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm transition-all hover:shadow-md hover:border-blue-300 dark:hover:border-blue-900/50 cursor-pointer select-none"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-zinc-100 dark:bg-zinc-800 rounded-xl group-hover:scale-110 transition-transform">
-                                    {getIconForType(m.type)}
-                                </div>
-                                <div className="flex flex-col overflow-hidden">
-                                     <span className="font-bold text-sm text-zinc-800 dark:text-zinc-200 truncate">{m.name || m.title}</span>
-                                     <Badge variant="outline" className="w-fit text-[9px] uppercase mt-0.5 font-bold tracking-wider">{m.type}</Badge>
+                {/* Educator Resources */}
+                {(() => {
+                    const educatorMaterials = materials.filter(m => !m.is_ai_recommended);
+                    const aiMaterials = [...materials.filter(m => m.is_ai_recommended), ...onDemandAiMaterials].slice(0, 3);
+                    return (
+                        <>
+                            <div>
+                                <h3 className="text-lg font-bold flex items-center gap-2 mb-3">
+                                    <Book size={18} className="text-indigo-500" /> Educator Resources
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {educatorMaterials.map((m, i) => (
+                                        <div 
+                                            key={m.id || i} 
+                                            onClick={() => {
+                                                if (['link', 'file'].includes(m.type)) {
+                                                    window.open(m.content, "_blank");
+                                                } else {
+                                                    setSelectedMaterial(m);
+                                                }
+                                            }}
+                                            title={getHoverText(m)}
+                                            className="group flex flex-col gap-2 p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm transition-all hover:shadow-md hover:border-blue-300 dark:hover:border-blue-900/50 cursor-pointer select-none"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2.5 bg-zinc-100 dark:bg-zinc-800 rounded-xl group-hover:scale-110 transition-transform">
+                                                    {getIconForType(m.type)}
+                                                </div>
+                                                <div className="flex flex-col overflow-hidden">
+                                                     <span className="font-bold text-sm text-zinc-800 dark:text-zinc-200 truncate">{m.name || m.title}</span>
+                                                     <Badge variant="outline" className="w-fit text-[9px] uppercase mt-0.5 font-bold tracking-wider">{m.type}</Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {educatorMaterials.length === 0 && (
+                                        <div className="col-span-full p-8 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                                            <Book size={24} className="mx-auto text-zinc-400 mb-2 opacity-50" />
+                                            <p className="text-zinc-500 font-medium">No educator materials uploaded yet.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                    {materials.length === 0 && (
-                        <div className="col-span-full p-8 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
-                            <Book size={24} className="mx-auto text-zinc-400 mb-2 opacity-50" />
-                            <p className="text-zinc-500 font-medium">No specific materials uploaded yet.</p>
-                        </div>
-                    )}
-                </div>
+
+                            {/* AI Recommended Tutorials */}
+                            {(aiMaterials.length > 0 || aiLoading) && (
+                                <div className="border-t border-zinc-200 dark:border-zinc-800 pt-6">
+                                    <h3 className="text-lg font-bold flex items-center gap-2 mb-3">
+                                        <Sparkles size={18} className="text-blue-500" />
+                                        <Video size={18} className="text-red-500" />
+                                        Recommended Tutorials
+                                    </h3>
+                                    {aiLoading ? (
+                                        <div className="flex items-center gap-3 p-6 rounded-2xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10">
+                                            <div className="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                                            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Finding relevant tutorials...</span>
+                                        </div>
+                                    ) : (
+                                    <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 premium-scrollbar">
+                                        {aiMaterials.map((m, i) => (
+                                            <div
+                                                key={m.id || `ai-${i}`}
+                                                className="shrink-0 w-[85%] sm:w-[280px] snap-center rounded-2xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10 overflow-hidden shadow-sm flex flex-col"
+                                            >
+                                                <div className="aspect-video w-full bg-zinc-900 overflow-hidden shrink-0">
+                                                    <iframe
+                                                        src={m.content?.includes('watch?v=') ? m.content.replace('watch?v=', 'embed/') : m.content}
+                                                        className="w-full h-full"
+                                                        allowFullScreen
+                                                        allow="autoplay; encrypted-media"
+                                                        title={m.title}
+                                                    />
+                                                </div>
+                                                <div className="p-4 flex items-start gap-3 flex-grow">
+                                                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg shrink-0 mt-0.5">
+                                                        <Video size={16} className="text-blue-600 dark:text-blue-400" />
+                                                    </div>
+                                                    <div className="overflow-hidden">
+                                                        <p className="font-bold text-sm text-zinc-800 dark:text-zinc-200 line-clamp-2">{m.title}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    )}
+                                </div>
+                            )}
+                        </>
+                    );
+                })()}
 
                 {/* Quiz History Section - Only show if not locked */}
                 {status !== 'Locked' && (
@@ -224,6 +302,9 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                             <Book className="text-blue-500" />
                             {selectedMaterial?.name || selectedMaterial?.title}
                         </DialogTitle>
+                        <DialogDescription className="text-sm text-zinc-500 font-medium">
+                            Viewing detailed content for this {selectedMaterial?.type || 'material'}.
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="overflow-y-auto premium-scrollbar p-6 md:p-8 flex-1 prose prose-zinc dark:prose-invert max-w-none">
                         {selectedMaterial?.type === 'video' ? (

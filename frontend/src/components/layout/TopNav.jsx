@@ -72,15 +72,15 @@ export function TopNav() {
 
                 {/* Right Area: Profile / Actions */}
                 <div className="flex items-center gap-4 pl-4 border-l border-zinc-200 dark:border-zinc-800 shrink-0">
-                    <div className="flex items-center gap-3 bg-zinc-100/50 dark:bg-zinc-800/50 rounded-full pl-4 pr-1.5 py-1.5 border border-zinc-200/50 dark:border-zinc-700/50 hidden sm:flex">
+                    <Link to="/profile" className="flex items-center gap-3 bg-zinc-100/50 hover:bg-zinc-200/50 dark:bg-zinc-800/50 dark:hover:bg-zinc-700/50 rounded-full pl-4 pr-1.5 py-1.5 border border-zinc-200/50 dark:border-zinc-700/50 hidden sm:flex transition-all duration-300">
                         <div className="flex flex-col items-end">
                             <span className="text-xs font-black leading-none text-zinc-900 dark:text-zinc-100 italic">{userName}</span>
                             <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mt-1">{role}</span>
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-inner uppercase">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center font-bold text-sm shadow-inner uppercase transition-all duration-300">
                             {userName.charAt(0)}
                         </div>
-                    </div>
+                    </Link>
 
                     <button
                         onClick={signOut}

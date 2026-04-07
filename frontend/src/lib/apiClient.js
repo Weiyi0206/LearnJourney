@@ -40,6 +40,15 @@ export const MaterialAPI = {
             console.error('Error deleting material:', error);
             throw error;
         }
+    },
+    updateMaterial: async (materialId, payload) => {
+        try {
+            const response = await client.put(`/api/materials/${materialId}`, payload);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating material:', error);
+            throw error;
+        }
     }
 };
 
@@ -141,6 +150,17 @@ export const CourseAPI = {
         } catch (error) {
             console.error('Error updating course graph:', error);
             throw error;
+        }
+    },
+    fetchYoutubeRecommend: async (skillId, courseTitle = '', skillName = '') => {
+        try {
+            const response = await client.get(`/api/skills/${skillId}/youtube-recommend`, {
+                params: { course_title: courseTitle, skill_name: skillName }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching YouTube recommendation:', error);
+            return [];
         }
     }
 };

@@ -24,6 +24,7 @@ import Diagnostic from "@/pages/student/Diagnostic";
 // Shared Course Pages
 import CourseView from "@/pages/shared/CourseView";
 import CourseHub from "@/pages/shared/CourseHub";
+import Profile from "@/pages/shared/Profile";
 
 const MainLayout = ({ children }) => {
   return (
@@ -107,6 +108,14 @@ export default function App() {
               <ProtectedRoute>
                 <MainLayout>
                   <CourseHub />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <Profile />
                 </MainLayout>
               </ProtectedRoute>
             } />

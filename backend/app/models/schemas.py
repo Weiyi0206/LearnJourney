@@ -50,6 +50,7 @@ class MaterialBase(BaseModel):
     type: str # text, video, file, link
     content: str
     skill_id: Optional[UUID] = None
+    is_ai_recommended: Optional[bool] = False
 
 class Material(MaterialBase):
     id: UUID
