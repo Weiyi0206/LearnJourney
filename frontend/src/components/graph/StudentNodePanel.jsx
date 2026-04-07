@@ -275,19 +275,19 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                                 </div>
                                 <div className="p-5 md:p-6 space-y-4">
                                     {q.is_correct ? (
-                                        <div className="flex flex-col text-sm font-medium">
+                                        <div className="flex flex-col text-sm font-medium min-w-0 w-full">
                                             <span className="text-emerald-600 dark:text-emerald-400 font-bold mb-1 tracking-wide uppercase text-[11px]">Correct Answer Selected</span>
-                                            <span className="text-zinc-700 dark:text-zinc-300 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800">{q.options[q.correct_index]}</span>
+                                            <div className="text-zinc-700 dark:text-zinc-300 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 break-words whitespace-normal w-full">{q.options[q.correct_index]}</div>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="flex flex-col text-sm font-medium">
+                                            <div className="flex flex-col text-sm font-medium min-w-0 w-full">
                                                 <span className="text-red-500 font-bold mb-1 tracking-wide uppercase text-[11px]">Your Answer</span>
-                                                <span className="text-zinc-500 p-3 bg-red-50/30 dark:bg-red-950/10 rounded-xl border border-red-100 dark:border-red-900/30 line-through decoration-red-300 dark:decoration-red-800/50">{q.options[q.selected_index] || "No answer provided"}</span>
+                                                <div className="text-zinc-500 p-3 bg-red-50/30 dark:bg-red-950/10 rounded-xl border border-red-100 dark:border-red-900/30 line-through decoration-red-300 dark:decoration-red-800/50 break-words whitespace-normal w-full">{q.options[q.selected_index] || "No answer provided"}</div>
                                             </div>
-                                            <div className="flex flex-col text-sm font-medium">
+                                            <div className="flex flex-col text-sm font-medium min-w-0 w-full">
                                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold mb-1 tracking-wide uppercase text-[11px]">Correct Answer</span>
-                                                <span className="text-zinc-700 dark:text-zinc-300 p-3 bg-emerald-50/30 dark:bg-emerald-950/10 rounded-xl border border-emerald-100 dark:border-emerald-900/30">{q.options[q.correct_index]}</span>
+                                                <div className="text-zinc-700 dark:text-zinc-300 p-3 bg-emerald-50/30 dark:bg-emerald-950/10 rounded-xl border border-emerald-100 dark:border-emerald-900/30 break-words whitespace-normal w-full">{q.options[q.correct_index]}</div>
                                             </div>
                                         </div>
                                     )}
