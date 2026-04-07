@@ -22,6 +22,27 @@ client.interceptors.request.use(async (config) => {
     return Promise.reject(error);
 });
 
+export const MaterialAPI = {
+    createMaterial: async (skillId, payload) => {
+        try {
+            const response = await client.post(`/api/skills/${skillId}/materials`, payload);
+            return response.data;
+        } catch (error) {
+            console.error('Error creating material:', error);
+            throw error;
+        }
+    },
+    deleteMaterial: async (materialId) => {
+        try {
+            const response = await client.delete(`/api/materials/${materialId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error deleting material:', error);
+            throw error;
+        }
+    }
+};
+
 export const CourseService = {
     getAllCourses: async () => {
         try {

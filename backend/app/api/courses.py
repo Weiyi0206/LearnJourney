@@ -169,10 +169,14 @@ def get_course_graph(course_id: UUID, supabase: Client = Depends(get_supabase_cl
         # Fetch all prerequisite edges tied to this course
         edges_res = supabase.table("prerequisite_edges").select("*").eq("course_id", str(course_id)).execute()
         
+        # Fetch all materials tied to this course
+        materials_res = supabase.table("materials").select("*").eq("course_id", str(course_id)).execute()
+        
         return CourseGraphResponse(
             **course_data,
             skills=skills_res.data,
-            prerequisite_edges=edges_res.data
+            prerequisite_edges=edges_res.data,
+            materials=materials_res.data
         )
     except HTTPException:
         raise
@@ -287,6 +291,46 @@ def update_skill_settings(skill_id: str, req: SkillSettingsUpdate, supabase: Cli
         return res.data[0]
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Materials Management ──
+
+class MaterialCreate(BaseModel):
+    title: str
+    type: str # text, video, file, link
+    content: str
+
+@router.post("/api/skills/{skill_id}/materials")
+def create_skill_material(skill_id: str, req: MaterialCreate, supabase: Client = Depends(get_supabase_client)):
+    try:
+        # Get course_id for this skill
+        skill_res = supabase.table("skills").select("course_id").eq("id", skill_id).execute()
+        if not skill_res.data:
+            raise HTTPException(status_code=404, detail="Skill not found")
+        course_id = skill_res.data[0]["course_id"]
+
+        material_data = {
+            "skill_id": skill_id,
+            "course_id": course_id,
+            "title": req.title,
+            "type": req.type,
+            "content": req.content
+        }
+        res = supabase.table("materials").insert(material_data).execute()
+        if not res.data:
+            raise HTTPException(status_code=400, detail="Failed to create material")
+        return res.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/api/materials/{material_id}")
+def delete_material(material_id: str, supabase: Client = Depends(get_supabase_client)):
+    try:
+        res = supabase.table("materials").delete().eq("id", material_id).execute()
+        return {"status": "success", "deleted": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

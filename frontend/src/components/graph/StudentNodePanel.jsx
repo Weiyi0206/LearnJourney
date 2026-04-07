@@ -32,6 +32,7 @@ export default function StudentNodePanel({ node, fullCourseData }) {
     const [quizHistory, setQuizHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [selectedAttempt, setSelectedAttempt] = useState(null);
+    const [selectedMaterial, setSelectedMaterial] = useState(null);
 
     useEffect(() => {
         if (user?.id && node?.id) {
@@ -59,13 +60,33 @@ export default function StudentNodePanel({ node, fullCourseData }) {
         }
     };
 
+    const getHoverText = (m) => {
+        if (!m || !m.content) return '';
+        switch (m.type) {
+            case "file":
+                try {
+                    return m.content.split('/').pop().split('?')[0] || m.content;
+                } catch {
+                    return m.content;
+                }
+            case "link":
+            case "video":
+                return m.content;
+            case "text":
+            case "read":
+                return m.content.length > 100 ? m.content.substring(0, 100) + '...' : m.content;
+            default:
+                return m.content;
+        }
+    };
+
     const formatDate = (dateStr) => {
         const d = new Date(dateStr);
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
 
     return (
-        <SheetContent className="w-full sm:max-w-md lg:max-w-xl overflow-y-auto bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 p-0 flex flex-col">
+        <SheetContent className="w-full sm:max-w-md lg:max-w-xl overflow-y-auto premium-scrollbar bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 p-0 flex flex-col">
             <div className="p-6 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0">
                 <SheetHeader>
                     <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest mb-2">
@@ -92,20 +113,33 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                 <h3 className="text-lg font-bold flex items-center gap-2">
                     <FileText size={18} className="text-blue-500" /> Learning Materials
                 </h3>
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {materials.map((m, i) => (
-                        <div key={i} className="flex flex-col gap-3 p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 shadow-sm transition-all hover:shadow-md hover:border-blue-200 dark:hover:border-blue-900/50">
+                        <div 
+                            key={i} 
+                            onClick={() => {
+                                if (['link', 'file'].includes(m.type)) {
+                                    window.open(m.content, "_blank");
+                                } else {
+                                    setSelectedMaterial(m);
+                                }
+                            }}
+                            title={getHoverText(m)}
+                            className="group flex flex-col gap-2 p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm transition-all hover:shadow-md hover:border-blue-300 dark:hover:border-blue-900/50 cursor-pointer select-none"
+                        >
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                                <div className="p-2.5 bg-zinc-100 dark:bg-zinc-800 rounded-xl group-hover:scale-110 transition-transform">
                                     {getIconForType(m.type)}
                                 </div>
-                                <span className="font-bold text-base text-zinc-800 dark:text-zinc-200">{m.name}</span>
+                                <div className="flex flex-col overflow-hidden">
+                                     <span className="font-bold text-sm text-zinc-800 dark:text-zinc-200 truncate">{m.name || m.title}</span>
+                                     <Badge variant="outline" className="w-fit text-[9px] uppercase mt-0.5 font-bold tracking-wider">{m.type}</Badge>
+                                </div>
                             </div>
-                            <Button variant="secondary" className="w-full font-bold dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700">Open Resource</Button>
                         </div>
                     ))}
                     {materials.length === 0 && (
-                        <div className="p-8 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                        <div className="col-span-full p-8 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
                             <Book size={24} className="mx-auto text-zinc-400 mb-2 opacity-50" />
                             <p className="text-zinc-500 font-medium">No specific materials uploaded yet.</p>
                         </div>
@@ -168,6 +202,32 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                 )}
             </div>
 
+            {/* Material Text Viewer Dialog */}
+            <Dialog open={!!selectedMaterial} onOpenChange={(open) => !open && setSelectedMaterial(null)}>
+                <DialogContent className="sm:max-w-2xl lg:max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[2rem]">
+                    <DialogHeader className="p-6 md:p-8 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 shrink-0">
+                        <DialogTitle className="flex items-center gap-3 text-2xl font-black">
+                            <Book className="text-blue-500" />
+                            {selectedMaterial?.name || selectedMaterial?.title}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="overflow-y-auto premium-scrollbar p-6 md:p-8 flex-1 prose prose-zinc dark:prose-invert max-w-none">
+                        {selectedMaterial?.type === 'video' ? (
+                            <div className="aspect-video w-full rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                                <iframe 
+                                    src={selectedMaterial?.content?.includes('watch?v=') ? selectedMaterial.content.replace('watch?v=', 'embed/') : selectedMaterial?.content} 
+                                    className="w-full h-full" 
+                                    allowFullScreen 
+                                    allow="autoplay; encrypted-media" 
+                                />
+                            </div>
+                        ) : (
+                            <Markdown components={markdownComponents}>{selectedMaterial?.content}</Markdown>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={!!selectedAttempt} onOpenChange={(open) => !open && setSelectedAttempt(null)}>
                 <DialogContent className="sm:max-w-2xl lg:max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl">
                     <DialogHeader className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
@@ -186,7 +246,7 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                         </DialogDescription>
                     </DialogHeader>
                     
-                    <div className="overflow-y-auto p-4 md:p-8 space-y-6 flex-1">
+                    <div className="overflow-y-auto premium-scrollbar p-4 md:p-8 space-y-6 flex-1">
                         {selectedAttempt?.questions?.map((q, qIdx) => (
                             <div key={qIdx} className={`rounded-2xl border-2 shadow-sm bg-white dark:bg-zinc-900 ${q.is_correct ? 'border-emerald-100 dark:border-emerald-900/40' : 'border-red-100 dark:border-red-900/40'}`}>
                                 <div className={`p-5 md:p-6 border-b ${q.is_correct ? 'bg-emerald-50/50 border-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/20' : 'bg-red-50/50 border-red-50 dark:bg-red-950/20 dark:border-red-900/20'}`}>

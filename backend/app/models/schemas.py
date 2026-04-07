@@ -60,3 +60,4 @@ class Material(MaterialBase):
 class CourseGraphResponse(Course):
     skills: List[Skill] = []
     prerequisite_edges: List[PrerequisiteEdge] = []
+    materials: List[Material] = []

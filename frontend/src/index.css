@@ -127,3 +127,27 @@
     @apply font-sans;
     }
 }
+
+@layer utilities {
+    .premium-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .premium-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+        margin: 10px;
+    }
+    .premium-scrollbar::-webkit-scrollbar-thumb {
+        background: oklch(0.8 0 0 / 20%);
+        border-radius: 10px;
+    }
+    .premium-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: oklch(0.7 0 0 / 40%);
+    }
+
+    .dark .premium-scrollbar::-webkit-scrollbar-thumb {
+        background: oklch(1 0 0 / 10%);
+    }
+    .dark .premium-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: oklch(1 0 0 / 20%);
+    }
+}

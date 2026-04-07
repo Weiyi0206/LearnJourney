@@ -158,8 +158,23 @@ export default function CourseView() {
                 }
             }
 
+            const nodesDataMap = {};
+            if (data.materials && Array.isArray(data.materials)) {
+                data.materials.forEach(m => {
+                    const sid = m.skill_id;
+                    if (!nodesDataMap[sid]) nodesDataMap[sid] = { materials: [] };
+                    // Replace 'title' with 'name' for the frontend rendering if needed, 
+                    // though we can map it here seamlessly.
+                    nodesDataMap[sid].materials.push({
+                        ...m,
+                        name: m.title || m.name
+                    });
+                });
+            }
+
             setCourse({
                 ...data,
+                nodesData: nodesDataMap,
                 title: data.title,
                 description: data.description,
                 status: data.is_published ? "Published" : "Draft",
@@ -545,19 +560,22 @@ export default function CourseView() {
             </main>
 
             {/* SIDE PANEL INTERACTIVE OVERLAY */}
-            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <Sheet open={isSheetOpen && (!isEducator || isEditMode)} onOpenChange={setIsSheetOpen}>
                 {isEditMode ? (
                     <NodeEditorSheet
                         node={selectedNode}
                         onUpdateNode={updateNodeData}
                         onDeleteNode={deleteNode}
                     />
-                ) : isEducator ? (
-                    <EducatorNodePanel node={selectedNode} fullCourseData={course} isCourseOwner={isCourseOwner} />
-                ) : (
+                ) : !isEducator ? (
                     <StudentNodePanel node={selectedNode} fullCourseData={course} />
-                )}
+                ) : null}
             </Sheet>
+
+            {/* EDUCATOR NODE FULL DIALOG */}
+            <Dialog open={isSheetOpen && isEducator && !isEditMode} onOpenChange={setIsSheetOpen}>
+                <EducatorNodePanel node={selectedNode} fullCourseData={course} isCourseOwner={isCourseOwner} />
+            </Dialog>
 
             {/* Unenroll Confirmation Dialog */}
             <Dialog open={isUnenrollDialogOpen} onOpenChange={setIsUnenrollDialogOpen}>
