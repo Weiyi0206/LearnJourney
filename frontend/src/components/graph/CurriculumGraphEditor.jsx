@@ -73,7 +73,14 @@ export default function CurriculumGraphEditor({ nodes, edges, onNodesChange, onE
             >
                 <Background variant="dots" gap={20} size={1.5} color="#94a3b8" className="opacity-60 dark:opacity-30 mix-blend-multiply dark:mix-blend-screen" />
                 <Controls className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 shadow-xl rounded-xl" />
-                <MiniMap className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 shadow-xl rounded-2xl mb-4 mr-4" nodeColor="#6366f1" />
+                <MiniMap 
+                    className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-2xl mb-4 mr-4 overflow-hidden" 
+                    nodeColor="#818cf8"
+                    nodeStrokeColor="#6366f1"
+                    nodeStrokeWidth={2}
+                    nodeBorderRadius={8}
+                    maskColor="rgba(0, 0, 0, 0.05)"
+                />
             </ReactFlow>
         </div>
     );
