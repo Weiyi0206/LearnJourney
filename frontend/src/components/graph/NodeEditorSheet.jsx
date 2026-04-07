@@ -8,6 +8,7 @@ import { CourseAPI } from "@/lib/apiClient";
 
 export default function NodeEditorSheet({ node, onUpdateNode, onDeleteNode }) {
     const [label, setLabel] = useState("");
+    const [description, setDescription] = useState("");
     const [questionsCount, setQuestionsCount] = useState(20);
     const [passThreshold, setPassThreshold] = useState(60);
     const [isSaving, setIsSaving] = useState(false);
@@ -15,6 +16,7 @@ export default function NodeEditorSheet({ node, onUpdateNode, onDeleteNode }) {
     useEffect(() => {
         if (node) {
             setLabel(node.data?.label || "");
+            setDescription(node.data?.description || "");
             setQuestionsCount(node.data?.questions_count ?? 20);
             setPassThreshold(node.data?.pass_threshold ?? 60);
         }
@@ -29,6 +31,7 @@ export default function NodeEditorSheet({ node, onUpdateNode, onDeleteNode }) {
         const newData = {
             ...node.data,
             label,
+            description,
             questions_count: questionsCount,
             pass_threshold: passThreshold
         };
@@ -39,6 +42,7 @@ export default function NodeEditorSheet({ node, onUpdateNode, onDeleteNode }) {
             try {
                 await CourseAPI.updateSkillSettings(node.id, {
                     name: label,
+                    description,
                     questions_count: questionsCount,
                     pass_threshold: passThreshold
                 });
@@ -74,6 +78,17 @@ export default function NodeEditorSheet({ node, onUpdateNode, onDeleteNode }) {
                         value={label}
                         onChange={(e) => setLabel(e.target.value)}
                         className="h-12 text-lg font-bold border-2 focus-visible:ring-indigo-500 bg-white dark:bg-zinc-900 rounded-xl"
+                    />
+                </div>
+
+                {/* Node Description */}
+                <div className="space-y-3">
+                    <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2"><Type size={14} /> Description (Optional)</Label>
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="What is this node about?"
+                        className="w-full min-h-[100px] p-4 text-sm font-medium border-2 focus-visible:ring-indigo-500 bg-white dark:bg-zinc-900 rounded-xl outline-none resize-y"
                     />
                 </div>
 

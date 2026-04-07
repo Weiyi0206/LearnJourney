@@ -143,9 +143,23 @@ export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner 
                         {node?.data?.label}
                     </DialogTitle>
                     <DialogDescription className="text-sm font-medium mt-2">
-                        {nodeMetadata.description || "Manage course materials and view granular analytics for this specific concept."}
+                        {node?.data?.description || "Manage course materials and view granular analytics for this specific concept."}
                     </DialogDescription>
                 </DialogHeader>
+                <div className="flex gap-4 mt-6">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-tighter text-zinc-400 dark:text-zinc-500">Quiz Length</span>
+                        <Badge variant="outline" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-xs font-bold py-1 px-3">
+                            {node?.data?.questions_count || 20} Questions
+                        </Badge>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-tighter text-zinc-400 dark:text-zinc-500">Mastery Bar</span>
+                        <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-xs font-bold py-1 px-3">
+                            {node?.data?.pass_threshold || 60}% to Pass
+                        </Badge>
+                    </div>
+                </div>
             </div>
 
             <div className="flex-grow p-6 md:p-8">

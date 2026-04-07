@@ -21,6 +21,7 @@ class Course(CourseBase):
 
 class SkillBase(BaseModel):
     name: str
+    description: Optional[str] = None
     complexity_score: float = 0.0
     questions_count: int = 20
     pass_threshold: int = 60

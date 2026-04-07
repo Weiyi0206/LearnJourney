@@ -135,6 +135,7 @@ export default function CourseView() {
                         studentStatus,
                         hasAlert: false,
                         isDraggable: false,
+                        description: s.description,
                         questions_count: s.questions_count,
                         pass_threshold: s.pass_threshold,
                     }

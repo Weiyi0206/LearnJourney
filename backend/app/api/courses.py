@@ -237,6 +237,7 @@ def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabas
             skill_data = {
                 "course_id": course_id,
                 "name": label,
+                "description": node_data.get("description", ""),
                 "questions_count": node_data.get("questions_count", 20),
                 "pass_threshold": node_data.get("pass_threshold", 60),
                 "position_x": pos.get("x"),
@@ -401,6 +402,7 @@ def update_course_graph(course_id: UUID, req: GraphUpdateRequest, supabase: Clie
             old_id = node.get("id")
             node_data = node.get("data", {})
             name = node_data.get("label", "New Unit")
+            description = node_data.get("description", "")
             q_count = node_data.get("questions_count", 20)
             p_thresh = node_data.get("pass_threshold", 60)
             pos = node.get("position", {})
@@ -419,6 +421,7 @@ def update_course_graph(course_id: UUID, req: GraphUpdateRequest, supabase: Clie
                 # Update existing — persist new position too
                 supabase.table("skills").update({
                     "name": name,
+                    "description": description,
                     "questions_count": q_count,
                     "pass_threshold": p_thresh,
                     "position_x": pos_x,
@@ -431,6 +434,7 @@ def update_course_graph(course_id: UUID, req: GraphUpdateRequest, supabase: Clie
                 new_skill = {
                     "course_id": cid_str,
                     "name": name,
+                    "description": description,
                     "questions_count": q_count,
                     "pass_threshold": p_thresh,
                     "position_x": pos_x,
@@ -469,4 +473,24 @@ def update_course_graph(course_id: UUID, req: GraphUpdateRequest, supabase: Clie
     except Exception as e:
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+class SkillSettingsUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    questions_count: Optional[int] = None
+    pass_threshold: Optional[int] = None
+
+@router.put("/api/skills/{skill_id}")
+def update_skill_settings(skill_id: UUID, settings: SkillSettingsUpdate, supabase: Client = Depends(get_supabase_client)):
+    try:
+        update_data = {k: v for k, v in settings.dict(exclude_unset=True).items()}
+        if not update_data:
+            return {"message": "No fields to update"}
+        
+        res = supabase.table("skills").update(update_data).eq("id", str(skill_id)).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Skill not found or no changes made")
+        return res.data[0]
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

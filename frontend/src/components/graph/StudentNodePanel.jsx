@@ -103,9 +103,23 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                         )}
                     </div>
                     <SheetDescription className="text-base font-medium mt-2">
-                        {nodeMetadata.description || "Review the core concepts provided by your educator before attempting verification."}
+                        {node?.data?.description || "Review the core concepts provided by your educator before attempting verification."}
                     </SheetDescription>
                 </SheetHeader>
+                <div className="flex gap-4 mt-6">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-tighter text-zinc-400 dark:text-zinc-500">Quiz Length</span>
+                        <Badge variant="outline" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-xs font-bold py-1 px-3">
+                            {node?.data?.questions_count || 20} Questions
+                        </Badge>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-tighter text-zinc-400 dark:text-zinc-500">Mastery Bar</span>
+                        <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 text-xs font-bold py-1 px-3">
+                            {node?.data?.pass_threshold || 60}% to Pass
+                        </Badge>
+                    </div>
+                </div>
             </div>
 
             <div className="flex-grow p-6 space-y-6">
