@@ -92,7 +92,7 @@ pip install -r requirements.txt
 # Add SUPABASE_URL, SUPABASE_KEY, and GEMINI_API_KEY to backend/.env
 
 # Run the API server
-uvicorn app.main:app --reload
+uvicorn app.main:app 
 ```
 The FastAPI backend will now be running on `http://localhost:8000`.
 
@@ -121,7 +121,7 @@ For day-to-day development, you can use these quick commands from the root direc
 ```bash
 cd backend
 venv\Scripts\activate
-uvicorn app.main:app --reload
+uvicorn app.main:app 
 ```
 
 **Start Frontend:**
