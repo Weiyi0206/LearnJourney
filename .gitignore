@@ -13,8 +13,6 @@ venv/
 .env.local
 gcp-service-account.json
 
-# Documentation / Markdown
-*.md
 
 # OS specific
 .DS_Store
