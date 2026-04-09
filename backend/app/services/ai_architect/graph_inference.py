@@ -10,7 +10,7 @@ DEFAULT_CORPUS_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 
 class GraphInferenceEngine:
     def __init__(self, 
                  corpus_path: str = DEFAULT_CORPUS_PATH, 
-                 similarity_threshold: float = 0.35,
+                 similarity_threshold: float = 0.2,
                  asymmetry_threshold: float = 0.1):
         """
         Initializes the Prerequisite Inference Engine.

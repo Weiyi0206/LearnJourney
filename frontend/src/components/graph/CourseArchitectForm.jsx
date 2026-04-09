@@ -259,7 +259,7 @@ export default function CourseArchitectForm({ onGenerate }) {
                                         </>
                                     ) : (
                                         <>
-                                            <Sparkles size={18} /> Extract Skills with AI
+                                            <Sparkles size={18} /> Extract Skills
                                         </>
                                     )}
                                 </Button>
