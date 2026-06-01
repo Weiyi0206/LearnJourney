@@ -11,7 +11,7 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
-import { Wand2, Loader2, Network, BrainCircuit, Plus, X, Sparkles } from 'lucide-react';
+import { Wand2, Loader2, Network, BrainCircuit, Plus, X, Sparkles, BookOpen } from 'lucide-react';
 import { CourseAPI } from "@/lib/apiClient";
 
 export default function CourseArchitectForm({ onGenerate }) {
@@ -20,6 +20,7 @@ export default function CourseArchitectForm({ onGenerate }) {
     const [inputMode, setInputMode] = useState('bullet'); // 'bullet', 'csv', 'raw'
     const [isGenerating, setIsGenerating] = useState(false);
     const [loadingText, setLoadingText] = useState('Encoding semantics via SBERT...');
+    const [field, setField] = useState('python'); // 'python', 'accounting', 'economics'
 
     // Bullet-point mode state
     const [bulletSkills, setBulletSkills] = useState(['']);
@@ -94,7 +95,7 @@ export default function CourseArchitectForm({ onGenerate }) {
         setLoadingText('Connecting to Graph Inference Engine...');
 
         try {
-            const response = await CourseAPI.generateGraph(skillsArray);
+            const response = await CourseAPI.generateGraph(skillsArray, field);
             setLoadingText('Structuring Direct Acyclic Graph...');
             onGenerate({ title, description, nodes: response.nodes, edges: response.edges });
         } catch (error) {
@@ -161,6 +162,31 @@ export default function CourseArchitectForm({ onGenerate }) {
                                 onChange={(e) => setDescription(e.target.value)}
                             />
                         </div>
+                    </div>
+
+                    {/* Field / Corpus Selection */}
+                    <div className="space-y-3">
+                        <Label className="text-sm font-bold uppercase tracking-widest text-zinc-500">Knowledge Domain</Label>
+                        <p className="text-sm text-zinc-400 font-medium">Select the field that best matches your course. This determines which pedagogical corpus the AI engine uses to infer prerequisite relationships.</p>
+                        <Select value={field} onValueChange={setField}>
+                            <SelectTrigger className="h-14 text-lg font-bold border-2 rounded-xl focus-visible:ring-indigo-500 bg-white dark:bg-zinc-950 px-4">
+                                <div className="flex items-center gap-3">
+                                    <BookOpen size={20} className="text-indigo-500" />
+                                    <SelectValue placeholder="Select a field" />
+                                </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="python">
+                                    <span className="text-sm font-semibold">Python Programming</span>
+                                </SelectItem>
+                                <SelectItem value="accounting">
+                                    <span className="text-sm font-semibold">Financial Accounting</span>
+                                </SelectItem>
+                                <SelectItem value="economics">
+                                    <span className="text-sm font-semibold">Economics</span>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     {/* Skills Input Section */}

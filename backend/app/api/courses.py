@@ -12,8 +12,17 @@ from app.services.ai_architect.graph_inference import GraphInferenceEngine
 
 router = APIRouter()
 
+CORPUS_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'corpus')
+
+FIELD_CORPUS_MAP = {
+    "python": os.path.join(CORPUS_DIR, "python_corpus.txt"),
+    "accounting": os.path.join(CORPUS_DIR, "financial_accounting_corpus.txt"),
+    "economics": os.path.join(CORPUS_DIR, "economics_corpus.txt"),
+}
+
 class GenerateRequest(BaseModel):
     skills: List[str]
+    field: str = "python"  # "python", "accounting", or "economics"
 
 # ── Skill Parsing via Gemini ──
 
@@ -203,7 +212,8 @@ def create_course(course: CourseCreate, supabase: Client = Depends(get_supabase_
 @router.post("/api/courses/generate")
 def generate_course_graph(request: GenerateRequest):
     try:
-        engine = GraphInferenceEngine()
+        corpus_path = FIELD_CORPUS_MAP.get(request.field, FIELD_CORPUS_MAP["python"])
+        engine = GraphInferenceEngine(corpus_path=corpus_path)
         graph_data = engine.build_prerequisite_graph(request.skills)
         return graph_data
     except Exception as e:

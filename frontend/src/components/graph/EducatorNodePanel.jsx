@@ -110,8 +110,21 @@ export default function EducatorNodePanel({ node, fullCourseData, isCourseOwner 
                     return;
                 }
                 
-                const passed = data.filter(d => d.passed).length;
-                const passingRate = Math.round((passed / data.length) * 100) + "%";
+                const studentStatusMap = {};
+                data.forEach(d => {
+                    if (!studentStatusMap[d.student_id]) {
+                        studentStatusMap[d.student_id] = false;
+                    }
+                    if (d.passed) {
+                        studentStatusMap[d.student_id] = true;
+                    }
+                });
+
+                const uniqueStudents = Object.keys(studentStatusMap).length;
+                const passedStudents = Object.values(studentStatusMap).filter(passed => passed).length;
+                const passingRate = uniqueStudents > 0 
+                    ? Math.round((passedStudents / uniqueStudents) * 100) + "%"
+                    : "0%";
                 
                 const attempts = data.map(d => ({
                     ...d,

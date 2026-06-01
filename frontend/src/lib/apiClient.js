@@ -95,9 +95,9 @@ export const CourseService = {
 };
 
 export const CourseAPI = {
-    generateGraph: async (skillsList) => {
+    generateGraph: async (skillsList, field = 'python') => {
         try {
-            const response = await client.post('/api/courses/generate', { skills: skillsList });
+            const response = await client.post('/api/courses/generate', { skills: skillsList, field });
             return response.data;
         } catch (error) {
             console.error('Error in CourseAPI.generateGraph:', error);
