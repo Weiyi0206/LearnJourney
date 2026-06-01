@@ -16,7 +16,7 @@ class QuizGenerateRequest(BaseModel):
     skill_name: str
     skill_id: Optional[str] = None
     course_id: Optional[str] = None
-    num_questions: int = 20
+    num_questions: int = 5
     mastered_prerequisites: Optional[List[str]] = []
 
 class QuizQuestion(BaseModel):

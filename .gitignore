@@ -17,3 +17,6 @@ gcp-service-account.json
 # OS specific
 .DS_Store
 Thumbs.db
+
+report/
+results/

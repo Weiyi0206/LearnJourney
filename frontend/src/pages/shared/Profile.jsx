@@ -59,14 +59,14 @@ export default function Profile() {
         const totalNodes = courses.reduce((s, c) => s + (c.nodes_count || 0), 0);
         stat1Label = "Total Students";
         stat1Value = totalStudents;
-        stat2Label = "Total Nodes";
+        stat2Label = "Total Skills";
         stat2Value = totalNodes;
     } else {
         const totalMastered = courses.reduce((s, c) => s + (c.progress?.mastered || 0), 0);
         const avgProg = totalCourses > 0
             ? Math.round(courses.reduce((s, c) => s + (c.progress?.percent || 0), 0) / totalCourses)
             : 0;
-        stat1Label = "Nodes Mastered";
+        stat1Label = "Skills Mastered";
         stat1Value = totalMastered;
         stat2Label = "Avg Progress";
         stat2Value = `${avgProg}%`;
@@ -198,7 +198,7 @@ export default function Profile() {
                                                 <div className="flex items-center justify-between text-xs font-bold text-zinc-400">
                                                     <div className="flex gap-4">
                                                         <span className="flex items-center gap-1"><Users size={13} /> {course.students_count || 0}</span>
-                                                        <span className="flex items-center gap-1"><GitGraph size={13} /> {course.nodes_count || 0} nodes</span>
+                                                        <span className="flex items-center gap-1"><GitGraph size={13} /> {course.nodes_count || 0} skills</span>
                                                     </div>
                                                     <ChevronRight size={16} className="text-zinc-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
                                                 </div>
@@ -237,7 +237,7 @@ export default function Profile() {
                                                     />
                                                 </div>
                                                 <div className="flex items-center justify-between text-xs font-bold text-zinc-400">
-                                                    <span>{prog.text || `${prog.mastered} / ${prog.total} Nodes`}</span>
+                                                    <span>{prog.text || `${prog.mastered} / ${prog.total} Skills`}</span>
                                                     <ChevronRight size={16} className="text-zinc-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
                                                 </div>
                                             </div>

@@ -57,7 +57,7 @@ export default function CourseView() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [courseTitle, setCourseTitle] = useState('');
     const [courseDescription, setCourseDescription] = useState('');
-    const [courseQuestionsCount, setCourseQuestionsCount] = useState(20);
+    const [courseQuestionsCount, setCourseQuestionsCount] = useState(5);
     const [coursePassThreshold, setCoursePassThreshold] = useState(70);
     const [courseVisibility, setCourseVisibility] = useState('public');
     const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -413,7 +413,7 @@ export default function CourseView() {
                                                     <TableRow>
                                                         <TableHead>Student Name</TableHead>
                                                         <TableHead>Last Active</TableHead>
-                                                        <TableHead className="text-center">Nodes Perfected</TableHead>
+                                                        <TableHead className="text-center">Skills Perfected</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -444,7 +444,7 @@ export default function CourseView() {
                             <div className="flex flex-col min-w-[120px]">
                                 <div className="flex justify-between items-center w-full pb-1">
                                     <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Mastery</span>
-                                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">{studentStats.mastered} / {studentStats.total} Nodes</span>
+                                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">{studentStats.mastered} / {studentStats.total} Skills</span>
                                 </div>
                                 <Progress value={studentStats.percent} className="h-2 bg-zinc-200 dark:bg-zinc-700 [&>div]:bg-emerald-500" />
                             </div>

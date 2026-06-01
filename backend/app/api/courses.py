@@ -337,7 +337,7 @@ def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabas
                 "course_id": course_id,
                 "name": label,
                 "description": node_data.get("description", ""),
-                "questions_count": node_data.get("questions_count", 20),
+                "questions_count": node_data.get("questions_count", 5),
                 "pass_threshold": node_data.get("pass_threshold", 60),
                 "position_x": pos.get("x"),
                 "position_y": pos.get("y"),
@@ -388,7 +388,7 @@ def deploy_course(request: DeployRequest, supabase: Client = Depends(get_supabas
 # ── Skill Settings Update (Educator) ──
 
 class SkillSettingsUpdate(BaseModel):
-    questions_count: int = 20
+    questions_count: int = 5
     pass_threshold: int = 60
     name: str = None
 
@@ -474,7 +474,7 @@ from typing import Optional
 class CourseSettingsUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    questions_count: int = 20
+    questions_count: int = 5
     pass_threshold: int = 60
     is_public: Optional[bool] = None
 
@@ -537,7 +537,7 @@ def update_course_graph(course_id: UUID, req: GraphUpdateRequest, supabase: Clie
             node_data = node.get("data", {})
             name = node_data.get("label", "New Unit")
             description = node_data.get("description", "")
-            q_count = node_data.get("questions_count", 20)
+            q_count = node_data.get("questions_count", 5)
             p_thresh = node_data.get("pass_threshold", 60)
             pos = node.get("position", {})
             pos_x = pos.get("x")

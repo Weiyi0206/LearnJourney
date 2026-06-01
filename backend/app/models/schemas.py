@@ -23,7 +23,7 @@ class SkillBase(BaseModel):
     name: str
     description: Optional[str] = None
     complexity_score: float = 0.0
-    questions_count: int = 20
+    questions_count: int = 5
     pass_threshold: int = 60
     position_x: Optional[float] = None
     position_y: Optional[float] = None

@@ -150,7 +150,7 @@ def get_enrolled_courses(student_id: UUID, supabase: Client = Depends(get_supaba
                     "mastered": mastered,
                     "percent": percent,
                     "currentFocus": curr_focus,
-                    "text": f"{mastered} / {total} Nodes"
+                    "text": f"{mastered} / {total} Skills"
                 }
             }
             c_data.pop("profiles", None)

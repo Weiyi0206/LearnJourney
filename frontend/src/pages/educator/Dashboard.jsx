@@ -270,7 +270,7 @@ export default function EducatorDashboard() {
                                                 <div className="text-sm md:text-base font-black text-zinc-900 dark:text-white flex items-center gap-2">
                                                     <GitGraph size={16} className="text-zinc-400" /> {course.nodes}
                                                 </div>
-                                                <span className="text-[11px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest">Nodes</span>
+                                                <span className="text-[11px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest">Skills</span>
                                             </div>
                                         </div>
 

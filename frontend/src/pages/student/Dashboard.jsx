@@ -112,7 +112,7 @@ export default function StudentDashboard() {
                         <div className="flex items-center gap-2 text-indigo-500 mb-1">
                             <Target size={18} /> <span className="text-xs font-black uppercase tracking-widest">Mastered</span>
                         </div>
-                        <span className="text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">{totalMastered} Nodes</span>
+                        <span className="text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">{totalMastered} Skills</span>
                     </div>
                     <div className="flex flex-col items-start bg-white dark:bg-zinc-900/80 backdrop-blur-md p-5 rounded-3xl border border-zinc-200/50 dark:border-zinc-800 shadow-xl shadow-zinc-200/20 dark:shadow-none min-w-[140px]">
                         <div className="flex items-center gap-2 text-emerald-500 mb-1">
@@ -156,7 +156,7 @@ export default function StudentDashboard() {
                         {/* Bento Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
                             {enrolledCourses.map((course, idx) => {
-                                const prog = course.progress || { percent: 0, currentFocus: "Getting Started", text: "0 / 0 Nodes" };
+                                const prog = course.progress || { percent: 0, currentFocus: "Getting Started", text: "0 / 0 Skills" };
                                 const isFinished = prog.percent === 100;
 
                                 return (
