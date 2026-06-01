@@ -10,8 +10,8 @@ DEFAULT_CORPUS_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 
 class GraphInferenceEngine:
     def __init__(self, 
                  corpus_path: str = DEFAULT_CORPUS_PATH, 
-                 similarity_threshold: float = 0.2,
-                 asymmetry_threshold: float = 0.1):
+                 similarity_threshold: float = 0.25,
+                 asymmetry_threshold: float = 0.08):
         """
         Initializes the Prerequisite Inference Engine.
         Combines SemanticAnalyzer (SBERT) and ComplexityCalculator (The Corpus).

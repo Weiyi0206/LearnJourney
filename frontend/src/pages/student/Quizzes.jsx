@@ -15,6 +15,12 @@ const DEFAULT_PASS_THRESHOLD = 60;
 // Deduplicate concurrent requests (e.g. from React 18 Strict Mode double-mounting)
 const pendingQuizRequests = new Map();
 
+// Helper to ensure triple backticks have a newline before them so react-markdown parses them as blocks
+const fixMarkdownNewlines = (text) => {
+    if (!text) return text;
+    return text.replace(/([^\n])(```)/g, '$1\n$2');
+};
+
 const markdownComponents = {
     p: ({ node, ...props }) => <p className="mb-6 last:mb-0 inline-block w-full" {...props} />,
     pre: ({ node, ...props }) => (
@@ -408,7 +414,7 @@ export default function Quizzes() {
                         </div>
                         <div className="w-full text-zinc-800 dark:text-zinc-100 max-w-3xl text-xl md:text-3xl font-extrabold leading-snug md:leading-tight text-left md:text-center mx-auto whitespace-pre-wrap">
                             <Markdown components={markdownComponents}>
-                                {currentQuestion.question}
+                                {fixMarkdownNewlines(currentQuestion.question)}
                             </Markdown>
                         </div>
                     </div>
@@ -428,7 +434,7 @@ export default function Quizzes() {
                                 )}
                             </div>
                             <div className="leading-relaxed opacity-90 text-sm font-medium prose dark:prose-invert">
-                                <Markdown components={markdownComponents}>{currentQuestion.explanation}</Markdown>
+                                <Markdown components={markdownComponents}>{fixMarkdownNewlines(currentQuestion.explanation)}</Markdown>
                             </div>
                         </div>
                     )}
@@ -468,7 +474,7 @@ export default function Quizzes() {
                                         {option.id}
                                     </span>
                                     <span className="leading-snug whitespace-pre-wrap text-left flex-1">
-                                        <Markdown components={markdownOptionComponents}>{option.text}</Markdown>
+                                        <Markdown components={markdownOptionComponents}>{fixMarkdownNewlines(option.text)}</Markdown>
                                     </span>
                                 </Button>
                             );
