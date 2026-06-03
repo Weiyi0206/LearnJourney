@@ -25,6 +25,12 @@ const markdownComponents = {
     }
 };
 
+// Helper to ensure triple backticks have a newline before them so react-markdown parses them as blocks
+const fixMarkdownNewlines = (text) => {
+    if (!text) return text;
+    return text.replace(/([^\n])(```)/g, '$1\n$2');
+};
+
 export default function StudentNodePanel({ node, fullCourseData }) {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -350,7 +356,7 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                                             {q.is_correct ? <CheckCircle2 className="text-emerald-500" size={24} /> : <XCircle className="text-red-500" size={24} />}
                                         </div>
                                         <div className="w-full font-bold text-base md:text-lg text-zinc-800 dark:text-zinc-100">
-                                            <Markdown components={markdownComponents}>{q.question}</Markdown>
+                                            <Markdown components={markdownComponents}>{fixMarkdownNewlines(q.question)}</Markdown>
                                         </div>
                                     </div>
                                 </div>
@@ -358,17 +364,23 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                                     {q.is_correct ? (
                                         <div className="flex flex-col text-sm font-medium min-w-0 w-full">
                                             <span className="text-emerald-600 dark:text-emerald-400 font-bold mb-1 tracking-wide uppercase text-[11px]">Correct Answer Selected</span>
-                                            <div className="text-zinc-700 dark:text-zinc-300 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 break-words whitespace-normal w-full">{q.options[q.correct_index]}</div>
+                                            <div className="text-zinc-700 dark:text-zinc-300 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 break-words whitespace-normal w-full">
+                                                <Markdown components={markdownComponents}>{fixMarkdownNewlines(q.options[q.correct_index])}</Markdown>
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="flex flex-col text-sm font-medium min-w-0 w-full">
                                                 <span className="text-red-500 font-bold mb-1 tracking-wide uppercase text-[11px]">Your Answer</span>
-                                                <div className="text-zinc-500 p-3 bg-red-50/30 dark:bg-red-950/10 rounded-xl border border-red-100 dark:border-red-900/30 line-through decoration-red-300 dark:decoration-red-800/50 break-words whitespace-normal w-full">{q.options[q.selected_index] || "No answer provided"}</div>
+                                                <div className="text-zinc-500 p-3 bg-red-50/30 dark:bg-red-950/10 rounded-xl border border-red-100 dark:border-red-900/30 line-through decoration-red-300 dark:decoration-red-800/50 break-words whitespace-normal w-full">
+                                                    <Markdown components={markdownComponents}>{fixMarkdownNewlines(q.options[q.selected_index] || "No answer provided")}</Markdown>
+                                                </div>
                                             </div>
                                             <div className="flex flex-col text-sm font-medium min-w-0 w-full">
                                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold mb-1 tracking-wide uppercase text-[11px]">Correct Answer</span>
-                                                <div className="text-zinc-700 dark:text-zinc-300 p-3 bg-emerald-50/30 dark:bg-emerald-950/10 rounded-xl border border-emerald-100 dark:border-emerald-900/30 break-words whitespace-normal w-full">{q.options[q.correct_index]}</div>
+                                                <div className="text-zinc-700 dark:text-zinc-300 p-3 bg-emerald-50/30 dark:bg-emerald-950/10 rounded-xl border border-emerald-100 dark:border-emerald-900/30 break-words whitespace-normal w-full">
+                                                    <Markdown components={markdownComponents}>{fixMarkdownNewlines(q.options[q.correct_index])}</Markdown>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -377,7 +389,7 @@ export default function StudentNodePanel({ node, fullCourseData }) {
                                             <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                                                 <span className="text-blue-500 font-bold flex items-center gap-1.5 mb-2 text-sm"><Sparkles size={16}/> Knowledge Oracle Explanation:</span>
                                                 <div className="text-zinc-700 dark:text-zinc-300 prose prose-sm dark:prose-invert max-w-none [&_p]:mb-0">
-                                                    <Markdown components={markdownComponents}>{q.explanation}</Markdown>
+                                                    <Markdown components={markdownComponents}>{fixMarkdownNewlines(q.explanation)}</Markdown>
                                                 </div>
                                             </div>
                                         </div>
